@@ -1,0 +1,205 @@
+:root {
+  color-scheme: dark;
+  --bg: #14161c;
+  --panel: #1d2029;
+  --panel-alt: #262a36;
+  --border: #333747;
+  --text: #e8e9ee;
+  --text-dim: #9296a6;
+  --accent: #ff6b4a;
+  --accent-2: #4ade80;
+  --step-off: #2a2e3a;
+  --step-beat: #343948;
+
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.app {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
+}
+
+.app__header h1 {
+  margin: 0 0 4px;
+  font-size: 1.8rem;
+}
+
+.app__subtitle {
+  margin: 0 0 24px;
+  color: var(--text-dim);
+}
+
+.app__footer {
+  margin-top: 24px;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+.prompt-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.prompt-bar__input {
+  flex: 1;
+  min-width: 220px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.prompt-bar__input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.prompt-bar__submit {
+  background: var(--panel-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 20px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.prompt-bar__submit:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.prompt-bar__submit:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.prompt-bar__error {
+  flex-basis: 100%;
+  color: var(--accent);
+  font-size: 0.85rem;
+}
+
+.transport {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+
+.transport__play {
+  background: var(--accent);
+  color: #1a1a1a;
+  border: none;
+  font-weight: 700;
+  font-size: 1rem;
+  padding: 10px 22px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.transport__play:hover {
+  filter: brightness(1.08);
+}
+
+.transport__bpm {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+.transport__bpm span {
+  color: var(--text);
+  min-width: 2.5em;
+  font-variant-numeric: tabular-nums;
+}
+
+.transport__style {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  font-style: italic;
+  flex-basis: 100%;
+}
+
+.sequencer {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  overflow-x: auto;
+}
+
+.sequencer__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.sequencer__label {
+  width: 96px;
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  text-align: right;
+}
+
+.sequencer__steps {
+  display: flex;
+  gap: 4px;
+}
+
+.step-cell {
+  width: 28px;
+  height: 28px;
+  border-radius: 5px;
+  background: var(--step-off);
+  border: 1px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.05s ease;
+}
+
+.step-cell--beat-start {
+  background: var(--step-beat);
+}
+
+.step-cell--active {
+  background: color-mix(in srgb, var(--accent) calc(var(--intensity) * 100%), var(--step-beat));
+}
+
+.step-cell--current {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 1px;
+}
+
+.step-cell:hover {
+  transform: scale(1.08);
+}
+
+.step-cell:active {
+  transform: scale(0.95);
+}
