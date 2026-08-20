@@ -29,15 +29,10 @@ export class Scheduler {
     this.nextNoteTime = 0;
     this.timerId = null;
     this.onStep = null; // callback(stepIndex) für UI-Highlight
-    this.midiOut = null; // optional: sendet parallel GM-MIDI-Noten raus
   }
 
   setPattern(pattern) {
     this.pattern = pattern;
-  }
-
-  setMidiOut(midiOut) {
-    this.midiOut = midiOut;
   }
 
   get totalSteps() {
@@ -87,7 +82,6 @@ export class Scheduler {
         : velocity;
       const gain = humanizedVelocity / 127;
       this.drumSynth.trigger(instrumentKey, gain, triggerTime);
-      this.midiOut?.trigger(instrumentKey, humanizedVelocity, triggerTime);
     }
 
     if (this.onStep) {

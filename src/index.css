@@ -147,57 +147,6 @@ body {
   font-style: italic;
 }
 
-.midi-out {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-  font-size: 0.85rem;
-}
-
-.midi-out--unsupported {
-  color: var(--text-dim);
-  font-style: italic;
-}
-
-.midi-out__label {
-  color: var(--text-dim);
-}
-
-.midi-out__enable,
-.midi-out__refresh {
-  background: var(--panel);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 16px;
-  cursor: pointer;
-  font-size: 0.85rem;
-}
-
-.midi-out__enable:hover,
-.midi-out__refresh:hover {
-  border-color: var(--accent);
-}
-
-.midi-out__select {
-  background: var(--panel);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 6px 10px;
-  font-size: 0.85rem;
-}
-
-.midi-out__refresh {
-  padding: 6px 10px;
-}
-
-.midi-out__error {
-  color: var(--accent);
-}
-
 .guitar-panel {
   display: flex;
   flex-direction: column;

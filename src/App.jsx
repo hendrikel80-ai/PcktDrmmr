@@ -5,7 +5,6 @@ import StepSequencer from './components/StepSequencer';
 import Transport from './components/Transport';
 import PromptBar from './components/PromptBar';
 import KitSelector from './components/KitSelector';
-import MidiOutputSelector from './components/MidiOutputSelector';
 import PatternManager from './components/PatternManager';
 import GuitarPanel from './components/GuitarPanel';
 
@@ -19,13 +18,6 @@ export default function App() {
     kitId,
     isKitLoading,
     selectKit,
-    midiSupported,
-    midiEnabled,
-    midiOutputs,
-    selectedMidiOutputId,
-    enableMidi,
-    selectMidiOutput,
-    refreshMidiOutputs,
     guitarSupported,
     guitarConnected,
     guitarDevices,
@@ -60,16 +52,6 @@ export default function App() {
       <PromptBar onGenerate={handleLoadPattern} />
 
       <KitSelector kitId={kitId} isLoading={isKitLoading} onSelect={selectKit} />
-
-      <MidiOutputSelector
-        supported={midiSupported}
-        enabled={midiEnabled}
-        outputs={midiOutputs}
-        selectedId={selectedMidiOutputId}
-        onEnable={enableMidi}
-        onSelect={selectMidiOutput}
-        onRefresh={refreshMidiOutputs}
-      />
 
       <GuitarPanel
         supported={guitarSupported}

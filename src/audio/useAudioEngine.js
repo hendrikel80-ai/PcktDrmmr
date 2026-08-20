@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { HybridDrumEngine } from './HybridDrumEngine';
 import { GuitarEngine } from './GuitarEngine';
-import { MidiOut } from './MidiOut';
 import { Scheduler } from './Scheduler';
 import { DEFAULT_KIT_ID, getKit } from '../data/kits';
 
@@ -14,9 +13,6 @@ export function useAudioEngine(pattern) {
   const [currentStep, setCurrentStep] = useState(-1);
   const [kitId, setKitId] = useState(DEFAULT_KIT_ID);
   const [isKitLoading, setIsKitLoading] = useState(false);
-  const [midiEnabled, setMidiEnabled] = useState(false);
-  const [midiOutputs, setMidiOutputs] = useState([]);
-  const [selectedMidiOutputId, setSelectedMidiOutputId] = useState(null);
   const [guitarConnected, setGuitarConnected] = useState(false);
   const [guitarDevices, setGuitarDevices] = useState([]);
   const [selectedGuitarDeviceId, setSelectedGuitarDeviceId] = useState(null);
@@ -42,11 +38,8 @@ export function useAudioEngine(pattern) {
     const engine = new HybridDrumEngine(audioCtx, getKit(DEFAULT_KIT_ID), masterOut);
     const scheduler = new Scheduler(audioCtx, engine);
     scheduler.onStep = (step) => setCurrentStep(step);
-    const midiOut = new MidiOut(audioCtx);
-    midiOut.onOutputsChanged = (outputs) => setMidiOutputs(outputs);
-    scheduler.setMidiOut(midiOut);
     const guitar = new GuitarEngine(audioCtx, masterOut);
-    engineRef.current = { audioCtx, masterOut, engine, scheduler, midiOut, guitar };
+    engineRef.current = { audioCtx, masterOut, engine, scheduler, guitar };
     engine.loadSamples(DEFAULT_KIT_ID); // no-op falls keine echten Samples vorliegen
     return engineRef.current;
   }, []);
@@ -100,28 +93,6 @@ export function useAudioEngine(pattern) {
     },
     [ensureEngine]
   );
-
-  const enableMidi = useCallback(async () => {
-    const { midiOut } = ensureEngine();
-    const outputs = await midiOut.requestAccess(); // wirft bei fehlender Browser-Unterstützung
-    setMidiOutputs(outputs);
-    setMidiEnabled(true);
-    if (outputs.length > 0) {
-      midiOut.setOutput(outputs[0].id);
-      setSelectedMidiOutputId(outputs[0].id);
-    }
-  }, [ensureEngine]);
-
-  const selectMidiOutput = useCallback((id) => {
-    engineRef.current?.midiOut.setOutput(id);
-    setSelectedMidiOutputId(id);
-  }, []);
-
-  const refreshMidiOutputs = useCallback(() => {
-    const midiOut = engineRef.current?.midiOut;
-    if (!midiOut) return;
-    setMidiOutputs(midiOut.listOutputs());
-  }, []);
 
   const connectGuitar = useCallback(
     async (deviceId) => {
@@ -181,13 +152,6 @@ export function useAudioEngine(pattern) {
     kitId,
     isKitLoading,
     selectKit,
-    midiSupported: MidiOut.isSupported(),
-    midiEnabled,
-    midiOutputs,
-    selectedMidiOutputId,
-    enableMidi,
-    selectMidiOutput,
-    refreshMidiOutputs,
     guitarSupported: GuitarEngine.isSupported(),
     guitarConnected,
     guitarDevices,
