@@ -3,7 +3,11 @@ import express from 'express';
 import cors from 'cors';
 import { generatePattern, UpstreamError } from './generatePattern.js';
 
-const PORT = process.env.PORT || 3001;
+// Eigener Variablenname statt PORT: unter `npm run dev:full` (concurrently)
+// erben sowohl der Vite- als auch der Backend-Prozess dieselbe Shell-Umgebung
+// — eine generische PORT-Variable (z.B. vom Preview-Tool für Vites autoPort
+// gesetzt) würde sonst versehentlich auch dieses Backend umleiten.
+const PORT = process.env.API_PORT || 3001;
 const MAX_PROMPT_LENGTH = 300;
 
 const app = express();

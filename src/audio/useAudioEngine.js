@@ -41,6 +41,14 @@ export function useAudioEngine(pattern) {
     const guitar = new GuitarEngine(audioCtx, masterOut);
     engineRef.current = { audioCtx, masterOut, engine, scheduler, guitar };
     engine.loadSamples(DEFAULT_KIT_ID); // no-op falls keine echten Samples vorliegen
+
+    // Debug-Zugriff in der Browser-Konsole (nur Dev-Build), z.B. für
+    // Latenz-Diagnose: window.__pocketDrummer.audioCtx.baseLatency /
+    // .outputLatency, oder window.__pocketDrummer.guitar.namNode.
+    if (import.meta.env.DEV) {
+      window.__pocketDrummer = engineRef.current;
+    }
+
     return engineRef.current;
   }, []);
 
