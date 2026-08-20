@@ -9,8 +9,16 @@ import { STEPS_PER_BAR } from '../data/instruments';
 const SCHEDULE_AHEAD_TIME = 0.1; // Sekunden, die im Voraus geplant werden
 const LOOKAHEAD_MS = 25; // Timer-Tick-Intervall
 
-const HUMANIZE_TIMING_SECONDS = 0.006; // max. Timing-Abweichung
+const HUMANIZE_TIMING_SECONDS = 0.012; // ~12ms Streubreite (Zielbereich 5-15ms lt. CLAUDE.md)
 const HUMANIZE_VELOCITY_RANGE = 8; // max. Velocity-Abweichung (0-127-Skala)
+
+// Summe zweier Gleichverteilungen ergibt eine Dreiecksverteilung: Abweichungen
+// häufen sich näher an 0, wie beim Timing eines echten Schlagzeugers, statt
+// gleichmäßig über den ganzen Bereich verteilt zu sein (CLAUDE.md: "nicht
+// gleichmäßig verteilt").
+function triangularRandom() {
+  return Math.random() + Math.random() - 1; // -1..1
+}
 
 export class Scheduler {
   constructor(audioCtx, drumSynth) {
@@ -21,10 +29,15 @@ export class Scheduler {
     this.nextNoteTime = 0;
     this.timerId = null;
     this.onStep = null; // callback(stepIndex) für UI-Highlight
+    this.midiOut = null; // optional: sendet parallel GM-MIDI-Noten raus
   }
 
   setPattern(pattern) {
     this.pattern = pattern;
+  }
+
+  setMidiOut(midiOut) {
+    this.midiOut = midiOut;
   }
 
   get totalSteps() {
@@ -63,7 +76,7 @@ export class Scheduler {
 
   _scheduleStep(stepIndex, time) {
     const { pattern, humanize } = this.pattern;
-    const timingOffset = humanize ? (Math.random() * 2 - 1) * HUMANIZE_TIMING_SECONDS : 0;
+    const timingOffset = humanize ? triangularRandom() * HUMANIZE_TIMING_SECONDS : 0;
     const triggerTime = time + timingOffset;
 
     for (const [instrumentKey, steps] of Object.entries(pattern)) {
@@ -74,6 +87,7 @@ export class Scheduler {
         : velocity;
       const gain = humanizedVelocity / 127;
       this.drumSynth.trigger(instrumentKey, gain, triggerTime);
+      this.midiOut?.trigger(instrumentKey, humanizedVelocity, triggerTime);
     }
 
     if (this.onStep) {

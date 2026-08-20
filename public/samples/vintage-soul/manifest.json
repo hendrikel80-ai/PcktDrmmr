@@ -1,0 +1,8 @@
+{
+  "kick": { "mid": ["vintage-kick-01.wav", "vintage-kick-02.wav", "vintage-kick-03.wav"] },
+  "snare": { "mid": ["vintage-snare-01.wav", "vintage-snare-02.wav", "vintage-snare-03.wav"] },
+  "hihat_closed": { "mid": ["hi-hat-closed-01.wav", "ch-lofi.wav"] },
+  "hihat_open": { "mid": ["open-hat-01.wav", "oh00-lofi.wav"] },
+  "tom_low": { "mid": ["lt00-lofi.wav"] },
+  "tom_high": { "mid": ["ht00-lofi.wav"] }
+}

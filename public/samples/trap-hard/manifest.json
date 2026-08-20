@@ -1,0 +1,7 @@
+{
+  "kick": { "mid": ["hard-kick-01.wav", "hard-kick-02.wav", "hard-kick-03.wav"] },
+  "snare": { "mid": ["hard-snare-01.wav", "hard-snare-02.wav", "hard-snare-03.wav"] },
+  "hihat_closed": { "mid": ["hi-hat-closed-01.wav", "ch.wav"] },
+  "hihat_open": { "mid": ["open-hat-01.wav"] },
+  "tom_low": { "mid": ["perc-low-tom.wav"] }
+}

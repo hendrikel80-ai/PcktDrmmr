@@ -4,3 +4,6 @@ dist
 .env.*
 !.env.example
 *.local
+
+# Generiert via scripts/copy-nam-assets.mjs (postinstall) aus node_modules
+public/nam/

@@ -4,16 +4,48 @@ import { useAudioEngine } from './audio/useAudioEngine';
 import StepSequencer from './components/StepSequencer';
 import Transport from './components/Transport';
 import PromptBar from './components/PromptBar';
+import KitSelector from './components/KitSelector';
+import MidiOutputSelector from './components/MidiOutputSelector';
+import PatternManager from './components/PatternManager';
+import GuitarPanel from './components/GuitarPanel';
 
 export default function App() {
   const [pattern, setPattern] = useState(DEFAULT_PATTERN);
-  const { isPlaying, currentStep, toggle, stop } = useAudioEngine(pattern);
+  const {
+    isPlaying,
+    currentStep,
+    toggle,
+    stop,
+    kitId,
+    isKitLoading,
+    selectKit,
+    midiSupported,
+    midiEnabled,
+    midiOutputs,
+    selectedMidiOutputId,
+    enableMidi,
+    selectMidiOutput,
+    refreshMidiOutputs,
+    guitarSupported,
+    guitarConnected,
+    guitarDevices,
+    selectedGuitarDeviceId,
+    guitarModelInfo,
+    connectGuitar,
+    disconnectGuitar,
+    refreshGuitarDevices,
+    loadGuitarModel,
+    loadCabinetIR,
+    clearCabinetIR,
+    setGuitarInputGain,
+    setGuitarOutputGain,
+  } = useAudioEngine(pattern);
 
   function handleBpmChange(bpm) {
     setPattern((p) => ({ ...p, bpm }));
   }
 
-  function handleGenerated(newPattern) {
+  function handleLoadPattern(newPattern) {
     stop();
     setPattern(newPattern);
   }
@@ -25,7 +57,35 @@ export default function App() {
         <p className="app__subtitle">Übungsbeats zum Mitspielen — Step-Sequencer</p>
       </header>
 
-      <PromptBar onGenerate={handleGenerated} />
+      <PromptBar onGenerate={handleLoadPattern} />
+
+      <KitSelector kitId={kitId} isLoading={isKitLoading} onSelect={selectKit} />
+
+      <MidiOutputSelector
+        supported={midiSupported}
+        enabled={midiEnabled}
+        outputs={midiOutputs}
+        selectedId={selectedMidiOutputId}
+        onEnable={enableMidi}
+        onSelect={selectMidiOutput}
+        onRefresh={refreshMidiOutputs}
+      />
+
+      <GuitarPanel
+        supported={guitarSupported}
+        connected={guitarConnected}
+        devices={guitarDevices}
+        selectedDeviceId={selectedGuitarDeviceId}
+        modelInfo={guitarModelInfo}
+        onConnect={connectGuitar}
+        onDisconnect={disconnectGuitar}
+        onRefreshDevices={refreshGuitarDevices}
+        onLoadModel={loadGuitarModel}
+        onLoadCabinetIR={loadCabinetIR}
+        onClearCabinetIR={clearCabinetIR}
+        onInputGainChange={setGuitarInputGain}
+        onOutputGainChange={setGuitarOutputGain}
+      />
 
       <Transport
         isPlaying={isPlaying}
@@ -34,6 +94,8 @@ export default function App() {
         onBpmChange={handleBpmChange}
         styleDescription={pattern.style_description}
       />
+
+      <PatternManager pattern={pattern} onLoad={handleLoadPattern} />
 
       <StepSequencer pattern={pattern} currentStep={currentStep} onChange={setPattern} />
 

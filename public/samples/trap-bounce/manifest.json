@@ -1,0 +1,8 @@
+{
+  "kick": { "mid": ["bounce-kick-01.wav", "bounce-kick-02.wav", "bounce-kick-03.wav"] },
+  "snare": { "mid": ["bounce-snare-01.wav", "bounce-snare-02.wav", "bounce-snare-03.wav"] },
+  "hihat_closed": { "mid": ["hi-hat-closed-01.wav"] },
+  "hihat_open": { "mid": ["open-hat-01.wav"] },
+  "tom_low": { "mid": ["perc-low-tom.wav"] },
+  "tom_high": { "mid": ["perc-high-tom.wav"] }
+}

@@ -93,6 +93,92 @@ Regeln:
    automatisch in den Sequencer
 7. **Politur:** BPM-Regler, Play/Stop, Pattern-Speichern/Laden
 
+## Aufgabe: Realistischerer Drum-Sound
+
+Ziel: weg vom "Drum-Machine"-Klang, hin zu "klingt wie echt gespieltes
+Schlagzeug". Größte Hebel, in Prioritätsreihenfolge:
+
+1. **Velocity-Layer statt reiner Gain-Skalierung**
+   - Pro Instrument 3–4 Samples bei unterschiedlicher Anschlagstärke
+     aufgenommen/bezogen (leise/mittel/laut), nicht nur ein Sample lauter
+     abgespielt.
+   - Beim Playback anhand des Velocity-Werts (0–127) das passende
+     Sample-Layer auswählen, nicht nur die Lautstärke skalieren – sonst
+     bleibt das Timbre unnatürlich gleich.
+
+2. **Round-Robin**
+   - 2–3 Varianten pro Velocity-Layer, reihum abwechselnd abspielen, damit
+     nicht jeder Hit identisch klingt.
+
+3. **Timing-Humanize verfeinern**
+   - Kleine zufällige Timing-Abweichung pro Hit (ca. ±5–15 ms), nicht
+     gleichmäßig verteilt.
+   - Sollte an bestehendes `humanize`-Flag im Pattern-Schema andocken.
+
+4. **Hihat-Choking**
+   - Wenn nach einem offenen Hihat-Hit ein geschlossener folgt (oder ein
+     expliziter Choke-Event), muss der offene Sample-Playback abrupt
+     gestoppt werden (kurzer Fade-out), wie beim Fußpedal-Dämpfen am
+     echten Kit.
+
+5. **Drumbus-Verarbeitung**
+   - Dezenter kurzer Room-Reverb auf dem Summen-Bus (kein langer Hall).
+   - Leichte Kompression auf dem Drumbus für mehr Druck/Zusammenhalt.
+
+**Sample-Kit-Empfehlung:** gutes Multisample-Kit mit Velocity-Layern
+suchen, z. B. MT Power Drum Kit (kostenlos, GM-Mapping, realistisch) statt
+Einzel-One-Shot-Samples.
+
+**Technische Notiz Web Audio API:** Velocity-Layer-Auswahl und Round-Robin
+lassen sich einfach in der Sample-Loading-/Playback-Schicht (Aufgabe 3 aus
+"Erste Aufgaben") mit einbauen – am besten dort ansetzen, bevor die
+UI-Anbindung folgt.
+
+## Aufgabe: Gitarre live einspielen via NAM (Neural Amp Modeler)
+
+Ziel: Gitarre (über Focusrite Scarlett) live mit Amp-Modeling durch den
+Browser schicken, parallel zum laufenden Drum-Sequencer im selben
+Audio-Graph.
+
+1. **Input-Zugriff:** Scarlett-Interface über `getUserMedia`/`AudioContext`
+   als Audioquelle einbinden (Nutzer wählt Interface im Browser-Dialog).
+2. **NAM-Integration:** Bestehendes Open-Source-Package nutzen statt
+   selbst zu bauen – `neural-amp-modeler-wasm`
+   (github.com/tone-3000/neural-amp-modeler-wasm, MIT-lizenziert,
+   basiert auf NeuralAmpModelerCore).
+   - WASM-Dateien im `public/`-Verzeichnis hosten
+   - Läuft in eigenem `AudioWorkletProcessor` (eigener Audio-Thread,
+     kein Blocking des Main-Threads)
+3. **Signalkette:** Gitarre (getUserMedia) → Input Gain → NAM
+   AudioWorklet (Amp-Modell-Inferenz) → optional ConvolverNode
+   (Cabinet-IR) → Output Gain → gemeinsamer Ausgang mit Drum-Sequencer
+4. **Modell-Auswahl:** `.nam`-Modelldateien von tone3000.com o.ä. laden
+   (Lizenz der jeweiligen Modelle prüfen, viele sind Community/frei).
+5. **Latenz-Hinweis:** Browser-Audio hat inhärent etwas mehr Latenz als
+   native ASIO/CoreAudio-Setups. Für "zum Beat mitspielen" unkritisch,
+   nicht für sample-genaues Recording-Timing.
+
+## Aufgabe: Riff-Aufnahme (lokal speichern)
+
+Ziel: Gitarre (via NAM) + Drum-Sequencer gemeinsam aufnehmen und als
+Audiodatei lokal auf dem Rechner speichern. **Kein OneDrive/Cloud-Upload
+in dieser Phase** – rein lokaler Download.
+
+1. **Mixdown-Bus:** Beide Signalquellen (NAM-Output + Drum-Sequencer-
+   Output) auf einen gemeinsamen `MediaStreamAudioDestinationNode` routen.
+2. **Aufnahme:** `MediaRecorder`-API auf diesem Stream aufzeichnen
+   (Start/Stop über UI-Button, z. B. gekoppelt an Sequencer Play/Stop).
+3. **Format:** Browser liefert i. d. R. WebM/Opus – für WAV-Export
+   ggf. Konvertierung nötig (z. B. via eigener Encoding-Routine oder
+   Library), falls WAV gewünscht ist.
+4. **Download:** Aufgenommenen Blob als Download-Link anbieten
+   (`URL.createObjectURL` + `<a download>`), Dateiname z. B. mit
+   Timestamp/Pattern-Name.
+5. **Später (nicht jetzt):** OneDrive-Anbindung als eigenständiger
+   Ausbauschritt – erfordert Microsoft-OAuth (Azure App-Registrierung)
+   und Upload über Microsoft Graph API. Bewusst zurückgestellt, bis
+   lokale Aufnahme sauber läuft.
+
 ## Offene Entscheidungen
 
 - Sample-Quelle: eigene Aufnahmen vs. lizenzfreie Sample-Packs (z. B.
