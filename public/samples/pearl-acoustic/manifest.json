@@ -1,0 +1,11 @@
+{
+  "kick": { "mid": ["kick-01.wav"] },
+  "snare": { "mid": ["snare-01.wav", "snare-02.wav", "snare-03.wav"] },
+  "hihat_closed": { "mid": ["hihat-closed.wav"] },
+  "hihat_open": { "mid": ["hihat-open.wav"] },
+  "crash": { "mid": ["crash-01.wav", "crash-02.wav"] },
+  "ride": { "mid": ["ride-01.wav", "ride-02.wav"] },
+  "tom_low": { "mid": ["tom-01.wav"] },
+  "tom_mid": { "mid": ["tom-02.wav"] },
+  "tom_high": { "mid": ["tom-03.wav"] }
+}

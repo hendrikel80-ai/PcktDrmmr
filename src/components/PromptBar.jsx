@@ -19,7 +19,17 @@ export default function PromptBar({ onGenerate }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: trimmed }),
       });
-      const data = await response.json();
+
+      let data;
+      try {
+        data = await response.json();
+      } catch {
+        // Leerer/ungültiger Body, z.B. weil das Backend nicht läuft (Vites
+        // Dev-Proxy liefert dann einen leeren 500er statt einer JSON-Fehlermeldung).
+        throw new Error(
+          `Server nicht erreichbar (Status ${response.status}). Läuft das Backend? ("npm run dev:full" statt nur "npm run dev")`
+        );
+      }
 
       if (!response.ok) {
         throw new Error(data.error || `Server-Fehler (${response.status})`);

@@ -15,6 +15,12 @@ wenn kein Sample vorliegt; `HybridDrumEngine` spielt dann synthetisch).
 Stilistisch sind das Hip-Hop/Trap-Kits — kein Ersatz für Metal/Punk/Country,
 sondern eine zusätzliche Option mit echten statt synthetisierten Transienten.
 
+Ein viertes echtes Kit (**Acoustic (echt)**) nutzt "Pearl Master Studio"
+(CC-BY 3.0, [oramics/sampled](https://oramics.github.io/sampled/DRUMS/pearl-master-studio/),
+siehe `public/samples/LICENSE.md` für die Attribution) — deckt als einziges
+Sample-Kit alle 9 Instrumente ab (inkl. Crash/Ride/alle 3 Toms), kein
+Synthese-Fallback im Normalbetrieb nötig.
+
 Für weitere eigene Kits gilt dasselbe Format — sobald Dateien in der
 richtigen Struktur vorliegen, nutzt die App sie automatisch statt der
 Synthese (`src/audio/SampleKit.js` + `src/audio/HybridDrumEngine.js`), ganz

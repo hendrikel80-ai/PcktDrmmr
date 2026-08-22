@@ -24,9 +24,9 @@ const FEW_SHOT_EXAMPLES = `Beispiel 1 — Anfrage: "Punk Beat 4/4 160 BPM"
   "bars": 1,
   "style_description": "Klassischer Punk-Beat: treibende durchgehende Achtel auf der HiHat, Snare auf 2 und 4, Kick auf 1 und die \\"and\\" von 2",
   "pattern": {
-    "kick":         [110,0,0,0, 0,0,90,0, 0,0,0,0, 110,0,0,0],
-    "snare":        [0,0,0,0, 100,0,0,0, 0,0,0,0, 105,0,0,0],
-    "hihat_closed": [80,60,80,60, 80,60,80,60, 80,60,80,60, 80,60,80,60]
+    "kick": [110,0,0,0,0,0,90,0,0,0,0,0,110,0,0,0],
+    "snare": [0,0,0,0,100,0,0,0,0,0,0,0,105,0,0,0],
+    "hihat_closed": [80,60,80,60,80,60,80,60,80,60,80,60,80,60,80,60]
   },
   "humanize": true
 }
@@ -38,10 +38,10 @@ Beispiel 2 — Anfrage: "Erstelle mir einen Drumbeat im Stile von Self Esteem vo
   "bars": 2,
   "style_description": "Pop-Punk-Groove im Stil treibender 90er-Punk-Rock-Beats: durchgehende Achtel-Hihat, Backbeat-Snare, punktuelle Kick-Synkopen",
   "pattern": {
-    "kick":         [110,0,0,0, 0,0,90,0, 0,0,0,0, 110,0,0,0,  110,0,0,0, 0,0,90,0, 0,0,0,0, 100,0,90,0],
-    "snare":        [0,0,0,0, 100,0,0,0, 0,0,0,0, 105,0,0,0,  0,0,0,0, 100,0,0,0, 0,0,0,0, 30,30,30,110],
-    "hihat_closed": [80,60,80,60, 80,60,80,60, 80,60,80,60, 80,60,80,60,  80,60,80,60, 80,60,80,60, 80,60,80,60, 0,0,0,0],
-    "crash":        [100,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+    "kick": [110,0,0,0,0,0,90,0,0,0,0,0,110,0,0,0,110,0,0,0,0,0,90,0,0,0,0,0,100,0,90,0],
+    "snare": [0,0,0,0,100,0,0,0,0,0,0,0,105,0,0,0,0,0,0,0,100,0,0,0,0,0,0,0,30,30,30,110],
+    "hihat_closed": [80,60,80,60,80,60,80,60,80,60,80,60,80,60,80,60,80,60,80,60,80,60,80,60,80,60,80,60,0,0,0,0],
+    "crash": [100,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
   },
   "humanize": true
 }`;
@@ -60,6 +60,7 @@ Regeln:
 - Baue dezente Ghost Notes und kleine Fills ein, v.a. am Ende von Mehrtakt-Patterns.
 - Bei fehlender BPM-Angabe: wähle einen genretypischen Wert.
 - Jedes Instrument-Array muss exakt bars * 16 Einträge lang sein.
+- Formatiere jedes Array als durchgehende, ausschließlich durch einzelne Kommas getrennte Zahlenliste ohne Gruppierungs-Leerzeichen oder Zeilenumbrüche innerhalb des Arrays (z.B. [110,0,0,0,90,0,0,0], nicht [110,0,0,0, 90,0,0,0]).
 - Antworte ausschließlich mit dem rohen JSON-Objekt, sonst nichts.
 
 ${FEW_SHOT_EXAMPLES}`;

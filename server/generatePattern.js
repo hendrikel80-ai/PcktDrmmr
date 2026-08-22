@@ -53,6 +53,15 @@ function extractJson(rawText) {
   return fenced ? fenced[1] : trimmed;
 }
 
+// Reparatur-Fallback: unser Schema hat nirgends zwei durch Leerzeichen
+// getrennte nackte Zahlen ohne Komma dazwischen — kommt das trotzdem vor
+// (z.B. fehlendes Komma an einer Gruppengrenze im Pattern-Array), ist das
+// Einfügen eines Kommas ein sicherer Reparaturversuch, bevor ein ganzer
+// Retry-Request verbraucht wird.
+function repairMissingArrayCommas(jsonText) {
+  return jsonText.replace(/(-?\d+)(\s+)(?=-?\d)/g, '$1,');
+}
+
 export async function generatePattern(userPrompt) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -73,9 +82,13 @@ export async function generatePattern(userPrompt) {
     try {
       parsed = JSON.parse(jsonText);
     } catch (err) {
-      lastError = new Error(`Ungültiges JSON von Claude: ${err.message}`);
-      message = `${userPrompt}\n\nDeine letzte Antwort war kein gültiges JSON (Fehler: ${err.message}). Antworte erneut ausschließlich mit gültigem JSON gemäß Schema.`;
-      continue;
+      try {
+        parsed = JSON.parse(repairMissingArrayCommas(jsonText));
+      } catch {
+        lastError = new Error(`Ungültiges JSON von Claude: ${err.message}`);
+        message = `${userPrompt}\n\nDeine letzte Antwort war kein gültiges JSON (Fehler: ${err.message}). Antworte erneut ausschließlich mit gültigem JSON gemäß Schema.`;
+        continue;
+      }
     }
 
     try {

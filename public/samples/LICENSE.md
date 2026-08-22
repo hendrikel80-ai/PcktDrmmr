@@ -14,6 +14,24 @@ die Herkunft trotzdem für Nachvollziehbarkeit.
 Ein Teil der Samples basiert auf Edward Lovealls TR-808-Sample-Bibliothek
 (ebenfalls CC0).
 
-Die Kits `standard`, `metal`, `punk` und `country` (siehe `src/data/kits.js`)
-verwenden weiterhin ausschließlich die synthetische Audio-Engine — hier
-liegen keine Sample-Dateien.
+## pearl-acoustic
+
+Die WAV-Dateien in `pearl-acoustic/` stammen aus
+["Pearl Master Studio" im Repository oramics/sampled](https://oramics.github.io/sampled/DRUMS/pearl-master-studio/)
+(ursprünglich von "enoe"), lizenziert unter **Creative Commons
+Attribution 3.0 (CC-BY 3.0)**:
+
+> Pearl Master Studio Pack 1 by enoe — CC-BY 3.0.
+> Quelle: http://audio.ibeat.org/?ccm=/files/enoe/286
+
+**Namensnennung erforderlich.** Attribution: "Pearl Master Studio Pack 1 by
+enoe, lizenziert unter CC-BY 3.0" (diese Datei erfüllt die Nennung; bei
+Weiterverbreitung außerhalb dieses Repos entsprechend mitgeben).
+
+Die `splash-*.wav`-Dateien aus dem Original-Pack wurden nicht übernommen, da
+unser Pattern-Schema kein Splash-Cymbal-Instrument kennt.
+
+## Kits ohne Sample-Dateien
+
+Das Kit `standard` (siehe `src/data/kits.js`) verwendet ausschließlich die
+synthetische Audio-Engine — hier liegen keine Sample-Dateien.
