@@ -1,14 +1,23 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { HybridDrumEngine } from './HybridDrumEngine';
 import { GuitarEngine } from './GuitarEngine';
+import { Recorder } from './Recorder';
 import { Scheduler } from './Scheduler';
 import { DEFAULT_KIT_ID, getKit } from '../data/kits';
+
+function formatTimestamp(date = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(
+    date.getHours()
+  )}-${pad(date.getMinutes())}-${pad(date.getSeconds())}`;
+}
 
 // Erzeugt AudioContext/Engine/Scheduler lazy beim ersten Play- oder
 // Kit-Klick, weil Browser AudioContext ohne vorherige User-Geste blockieren.
 export function useAudioEngine(pattern) {
   const engineRef = useRef(null);
   const patternRef = useRef(pattern);
+  const recordingsRef = useRef([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentStep, setCurrentStep] = useState(-1);
   const [kitId, setKitId] = useState(DEFAULT_KIT_ID);
@@ -17,8 +26,11 @@ export function useAudioEngine(pattern) {
   const [guitarDevices, setGuitarDevices] = useState([]);
   const [selectedGuitarDeviceId, setSelectedGuitarDeviceId] = useState(null);
   const [guitarModelInfo, setGuitarModelInfo] = useState(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordings, setRecordings] = useState([]);
 
   patternRef.current = pattern;
+  recordingsRef.current = recordings;
 
   const ensureEngine = useCallback(() => {
     if (engineRef.current) return engineRef.current;
@@ -35,11 +47,17 @@ export function useAudioEngine(pattern) {
     const masterOut = audioCtx.createGain();
     masterOut.connect(audioCtx.destination);
 
+    // Zusätzlicher Abgriff für die Riff-Aufnahme (CLAUDE.md): derselbe
+    // gemeinsame Mix aus Drums + Gitarre, parallel zur Hardware-Ausgabe.
+    const recordingDestination = audioCtx.createMediaStreamDestination();
+    masterOut.connect(recordingDestination);
+    const recorder = new Recorder(recordingDestination.stream);
+
     const engine = new HybridDrumEngine(audioCtx, getKit(DEFAULT_KIT_ID), masterOut);
     const scheduler = new Scheduler(audioCtx, engine);
     scheduler.onStep = (step) => setCurrentStep(step);
     const guitar = new GuitarEngine(audioCtx, masterOut);
-    engineRef.current = { audioCtx, masterOut, engine, scheduler, guitar };
+    engineRef.current = { audioCtx, masterOut, engine, scheduler, guitar, recorder };
     engine.loadSamples(DEFAULT_KIT_ID); // no-op falls keine echten Samples vorliegen
 
     // Debug-Zugriff in der Browser-Konsole (nur Dev-Build), z.B. für
@@ -61,6 +79,7 @@ export function useAudioEngine(pattern) {
       engineRef.current?.scheduler.stop();
       engineRef.current?.guitar.dispose();
       engineRef.current?.audioCtx.close();
+      recordingsRef.current.forEach((r) => URL.revokeObjectURL(r.url));
     };
   }, []);
 
@@ -152,6 +171,35 @@ export function useAudioEngine(pattern) {
     engineRef.current?.guitar.setOutputGain(value);
   }, []);
 
+  const toggleRecording = useCallback(async () => {
+    const { audioCtx, recorder } = ensureEngine();
+    if (audioCtx.state === 'suspended') {
+      await audioCtx.resume();
+    }
+    if (recorder.isRecording) {
+      const blob = await recorder.stop();
+      const url = URL.createObjectURL(blob);
+      const extension = blob.type.includes('ogg') ? 'ogg' : 'webm';
+      const filename = `pocket-drummer-riff-${formatTimestamp()}.${extension}`;
+      setRecordings((prev) => [
+        { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, url, filename, createdAt: Date.now() },
+        ...prev,
+      ]);
+      setIsRecording(false);
+    } else {
+      recorder.start();
+      setIsRecording(true);
+    }
+  }, [ensureEngine]);
+
+  const deleteRecording = useCallback((id) => {
+    setRecordings((prev) => {
+      const target = prev.find((r) => r.id === id);
+      if (target) URL.revokeObjectURL(target.url);
+      return prev.filter((r) => r.id !== id);
+    });
+  }, []);
+
   return {
     isPlaying,
     currentStep,
@@ -173,5 +221,10 @@ export function useAudioEngine(pattern) {
     clearCabinetIR,
     setGuitarInputGain,
     setGuitarOutputGain,
+    recordingSupported: Recorder.isSupported(),
+    isRecording,
+    recordings,
+    toggleRecording,
+    deleteRecording,
   };
 }

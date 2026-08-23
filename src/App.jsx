@@ -7,6 +7,7 @@ import PromptBar from './components/PromptBar';
 import KitSelector from './components/KitSelector';
 import PatternManager from './components/PatternManager';
 import GuitarPanel from './components/GuitarPanel';
+import RecordingPanel from './components/RecordingPanel';
 
 export default function App() {
   const [pattern, setPattern] = useState(DEFAULT_PATTERN);
@@ -31,6 +32,11 @@ export default function App() {
     clearCabinetIR,
     setGuitarInputGain,
     setGuitarOutputGain,
+    recordingSupported,
+    isRecording,
+    recordings,
+    toggleRecording,
+    deleteRecording,
   } = useAudioEngine(pattern);
 
   function handleBpmChange(bpm) {
@@ -78,6 +84,14 @@ export default function App() {
       />
 
       <PatternManager pattern={pattern} onLoad={handleLoadPattern} />
+
+      <RecordingPanel
+        supported={recordingSupported}
+        isRecording={isRecording}
+        recordings={recordings}
+        onToggle={toggleRecording}
+        onDelete={deleteRecording}
+      />
 
       <StepSequencer pattern={pattern} currentStep={currentStep} onChange={setPattern} />
 
