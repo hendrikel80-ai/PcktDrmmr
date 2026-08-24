@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { generatePattern, UpstreamError } from './generatePattern.js';
+import { suggestAmps } from './suggestAmps.js';
 
 // Eigener Variablenname statt PORT: unter `npm run dev:full` (concurrently)
 // erben sowohl der Vite- als auch der Backend-Prozess dieselbe Shell-Umgebung
@@ -32,6 +33,28 @@ app.post('/api/generate-pattern', async (req, res) => {
   } catch (err) {
     const status = err instanceof UpstreamError ? err.status : 500;
     console.error('generate-pattern failed:', err.message);
+    res.status(status).json({ error: err.message });
+  }
+});
+
+app.post('/api/suggest-amps', async (req, res) => {
+  const prompt = typeof req.body?.prompt === 'string' ? req.body.prompt.trim() : '';
+
+  if (!prompt) {
+    return res.status(400).json({ error: 'prompt darf nicht leer sein' });
+  }
+  if (prompt.length > MAX_PROMPT_LENGTH) {
+    return res
+      .status(400)
+      .json({ error: `prompt darf maximal ${MAX_PROMPT_LENGTH} Zeichen lang sein` });
+  }
+
+  try {
+    const suggestions = await suggestAmps(prompt);
+    res.json({ suggestions });
+  } catch (err) {
+    const status = err instanceof UpstreamError ? err.status : 500;
+    console.error('suggest-amps failed:', err.message);
     res.status(status).json({ error: err.message });
   }
 });

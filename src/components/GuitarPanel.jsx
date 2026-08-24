@@ -6,6 +6,7 @@ export default function GuitarPanel({
   devices,
   selectedDeviceId,
   modelInfo,
+  hasCabinetIR,
   onConnect,
   onDisconnect,
   onRefreshDevices,
@@ -16,7 +17,6 @@ export default function GuitarPanel({
   onOutputGainChange,
 }) {
   const [error, setError] = useState('');
-  const [hasCabinetIR, setHasCabinetIR] = useState(false);
   const modelInputRef = useRef(null);
   const irInputRef = useRef(null);
 
@@ -57,17 +57,11 @@ export default function GuitarPanel({
     setError('');
     try {
       await onLoadCabinetIR(file);
-      setHasCabinetIR(true);
     } catch (err) {
       setError(err.message);
     } finally {
       e.target.value = '';
     }
-  }
-
-  function handleClearIr() {
-    onClearCabinetIR();
-    setHasCabinetIR(false);
   }
 
   if (!supported) {
@@ -138,7 +132,7 @@ export default function GuitarPanel({
             onChange={handleIrFile}
           />
           {hasCabinetIR && (
-            <button type="button" className="guitar-panel__file-btn" onClick={handleClearIr}>
+            <button type="button" className="guitar-panel__file-btn" onClick={onClearCabinetIR}>
               IR entfernen
             </button>
           )}

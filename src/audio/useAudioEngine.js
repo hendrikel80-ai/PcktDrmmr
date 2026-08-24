@@ -4,6 +4,7 @@ import { GuitarEngine } from './GuitarEngine';
 import { Recorder } from './Recorder';
 import { Scheduler } from './Scheduler';
 import { DEFAULT_KIT_ID, getKit } from '../data/kits';
+import * as ampLibrary from '../data/ampLibrary';
 
 function formatTimestamp(date = new Date()) {
   const pad = (n) => String(n).padStart(2, '0');
@@ -18,6 +19,8 @@ export function useAudioEngine(pattern) {
   const engineRef = useRef(null);
   const patternRef = useRef(pattern);
   const recordingsRef = useRef([]);
+  const lastModelTextRef = useRef(null); // Rohtext des zuletzt geladenen .nam-Modells (für "In Bibliothek speichern")
+  const lastIRBufferRef = useRef(null); // ArrayBuffer der zuletzt geladenen Cabinet-IR
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentStep, setCurrentStep] = useState(-1);
   const [kitId, setKitId] = useState(DEFAULT_KIT_ID);
@@ -26,8 +29,11 @@ export function useAudioEngine(pattern) {
   const [guitarDevices, setGuitarDevices] = useState([]);
   const [selectedGuitarDeviceId, setSelectedGuitarDeviceId] = useState(null);
   const [guitarModelInfo, setGuitarModelInfo] = useState(null);
+  const [hasCabinetIR, setHasCabinetIR] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordings, setRecordings] = useState([]);
+  const [libraryModels, setLibraryModels] = useState([]);
+  const [libraryIRs, setLibraryIRs] = useState([]);
 
   patternRef.current = pattern;
   recordingsRef.current = recordings;
@@ -73,6 +79,12 @@ export function useAudioEngine(pattern) {
   useEffect(() => {
     engineRef.current?.scheduler.setPattern(patternRef.current);
   }, [pattern]);
+
+  useEffect(() => {
+    if (!ampLibrary.isSupported()) return;
+    ampLibrary.listModels().then(setLibraryModels);
+    ampLibrary.listIRs().then(setLibraryIRs);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -149,6 +161,7 @@ export function useAudioEngine(pattern) {
     if (!guitar) throw new Error('Erst Gitarren-Eingang verbinden.');
     const json = await file.text();
     const info = await guitar.loadModel(json);
+    lastModelTextRef.current = json;
     setGuitarModelInfo({ name: file.name, ...info });
   }, []);
 
@@ -156,11 +169,82 @@ export function useAudioEngine(pattern) {
     const { audioCtx, guitar } = ensureEngine();
     const arrayBuffer = await file.arrayBuffer();
     const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+    lastIRBufferRef.current = arrayBuffer;
     guitar.loadCabinetIR(audioBuffer);
+    setHasCabinetIR(true);
   }, [ensureEngine]);
+
+  // --- Lokale Amp-Bibliothek (IndexedDB) ---
+
+  const refreshLibrary = useCallback(async () => {
+    if (!ampLibrary.isSupported()) return;
+    setLibraryModels(await ampLibrary.listModels());
+    setLibraryIRs(await ampLibrary.listIRs());
+  }, []);
+
+  const saveCurrentModelToLibrary = useCallback(
+    async (name) => {
+      if (!lastModelTextRef.current) throw new Error('Kein Amp-Modell geladen.');
+      await ampLibrary.saveModel({ name, namText: lastModelTextRef.current });
+      await refreshLibrary();
+    },
+    [refreshLibrary]
+  );
+
+  const loadModelFromLibrary = useCallback(async (id) => {
+    const guitar = engineRef.current?.guitar;
+    if (!guitar) throw new Error('Erst Gitarren-Eingang verbinden.');
+    const entry = await ampLibrary.getModel(id);
+    if (!entry) throw new Error('Modell nicht gefunden.');
+    const info = await guitar.loadModel(entry.namText);
+    lastModelTextRef.current = entry.namText;
+    setGuitarModelInfo({ name: entry.name, ...info });
+  }, []);
+
+  const deleteLibraryModel = useCallback(
+    async (id) => {
+      await ampLibrary.deleteModel(id);
+      await refreshLibrary();
+    },
+    [refreshLibrary]
+  );
+
+  const saveCurrentIRToLibrary = useCallback(
+    async (name) => {
+      if (!lastIRBufferRef.current) throw new Error('Keine Cabinet-IR geladen.');
+      await ampLibrary.saveIR({ name, arrayBuffer: lastIRBufferRef.current });
+      await refreshLibrary();
+    },
+    [refreshLibrary]
+  );
+
+  const loadIRFromLibrary = useCallback(
+    async (id) => {
+      const { audioCtx, guitar } = ensureEngine();
+      const entry = await ampLibrary.getIR(id);
+      if (!entry) throw new Error('IR nicht gefunden.');
+      // decodeAudioData "verbraucht" den Buffer (detached nach Gebrauch) — Kopie nehmen,
+      // damit die Bibliothek den Original-Buffer für spätere Ladevorgänge behält.
+      const audioBuffer = await audioCtx.decodeAudioData(entry.arrayBuffer.slice(0));
+      lastIRBufferRef.current = entry.arrayBuffer;
+      guitar.loadCabinetIR(audioBuffer);
+      setHasCabinetIR(true);
+    },
+    [ensureEngine]
+  );
+
+  const deleteLibraryIR = useCallback(
+    async (id) => {
+      await ampLibrary.deleteIR(id);
+      await refreshLibrary();
+    },
+    [refreshLibrary]
+  );
 
   const clearCabinetIR = useCallback(() => {
     engineRef.current?.guitar.clearCabinetIR();
+    lastIRBufferRef.current = null;
+    setHasCabinetIR(false);
   }, []);
 
   const setGuitarInputGain = useCallback((value) => {
@@ -213,6 +297,7 @@ export function useAudioEngine(pattern) {
     guitarDevices,
     selectedGuitarDeviceId,
     guitarModelInfo,
+    hasCabinetIR,
     connectGuitar,
     disconnectGuitar,
     refreshGuitarDevices,
@@ -226,5 +311,14 @@ export function useAudioEngine(pattern) {
     recordings,
     toggleRecording,
     deleteRecording,
+    librarySupported: ampLibrary.isSupported(),
+    libraryModels,
+    libraryIRs,
+    saveCurrentModelToLibrary,
+    loadModelFromLibrary,
+    deleteLibraryModel,
+    saveCurrentIRToLibrary,
+    loadIRFromLibrary,
+    deleteLibraryIR,
   };
 }
