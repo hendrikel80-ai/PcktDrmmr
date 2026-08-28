@@ -1,5 +1,11 @@
 # Amp-Bibliothek & KI-Empfehlung
 
+> **Zurückgestellt** — hing an der NAM-Integration (`docs/nam-guitar.md`),
+> die nicht mehr der aktive Gitarren-Signalweg ist (siehe
+> `docs/guitar-ampsim.md`). `AmpLibrary.jsx`/`AmpFinder.jsx` sind aus der
+> UI entfernt, Code und Backend-Route bleiben aber erhalten für eine
+> mögliche spätere NAM-Reaktivierung.
+
 Ergänzt die NAM-Gitarren-Integration (`docs/nam-guitar.md`) um eine lokale
 Verwaltung für Amp-Modelle und Cabinet-IRs, plus eine KI-gestützte
 Empfehlungsfunktion.

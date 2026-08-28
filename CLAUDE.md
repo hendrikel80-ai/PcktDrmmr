@@ -134,29 +134,47 @@ lassen sich einfach in der Sample-Loading-/Playback-Schicht (Aufgabe 3 aus
 "Erste Aufgaben") mit einbauen – am besten dort ansetzen, bevor die
 UI-Anbindung folgt.
 
-## Aufgabe: Gitarre live einspielen via NAM (Neural Amp Modeler)
+## Aufgabe: Gitarre live einspielen via eigenem Amp-Simulator (Web Audio Nodes)
 
-Ziel: Gitarre (über Focusrite Scarlett) live mit Amp-Modeling durch den
-Browser schicken, parallel zum laufenden Drum-Sequencer im selben
-Audio-Graph.
+**Hintergrund:** NAM (WASM-Inferenz) hat sich als spürbarer Latenz-Faktor
+im Browser herausgestellt (Interface-Latenz war mit 7.5ms bereits gut,
+Verzögerung kam aus der neuronalen Netz-Verarbeitung pro Audio-Block).
+Statt NAM daher ein eigener, klassischer Amp-Simulator rein aus nativen
+Web Audio Nodes – läuft direkt auf dem Audio-Thread ohne zusätzliche
+Inferenz-Latenz, quasi wie Passthrough mit Klangfärbung.
+
+Ziel: Gitarre (über Focusrite Scarlett) live mit eigenem Amp-Modell
+(Gain, Treble, Middle, Bass, Reverb) durch den Browser schicken, parallel
+zum laufenden Drum-Sequencer im selben Audio-Graph.
 
 1. **Input-Zugriff:** Scarlett-Interface über `getUserMedia`/`AudioContext`
    als Audioquelle einbinden (Nutzer wählt Interface im Browser-Dialog).
-2. **NAM-Integration:** Bestehendes Open-Source-Package nutzen statt
-   selbst zu bauen – `neural-amp-modeler-wasm`
-   (github.com/tone-3000/neural-amp-modeler-wasm, MIT-lizenziert,
-   basiert auf NeuralAmpModelerCore).
-   - WASM-Dateien im `public/`-Verzeichnis hosten
-   - Läuft in eigenem `AudioWorkletProcessor` (eigener Audio-Thread,
-     kein Blocking des Main-Threads)
-3. **Signalkette:** Gitarre (getUserMedia) → Input Gain → NAM
-   AudioWorklet (Amp-Modell-Inferenz) → optional ConvolverNode
-   (Cabinet-IR) → Output Gain → gemeinsamer Ausgang mit Drum-Sequencer
-4. **Modell-Auswahl:** `.nam`-Modelldateien von tone3000.com o.ä. laden
-   (Lizenz der jeweiligen Modelle prüfen, viele sind Community/frei).
-5. **Latenz-Hinweis:** Browser-Audio hat inhärent etwas mehr Latenz als
-   native ASIO/CoreAudio-Setups. Für "zum Beat mitspielen" unkritisch,
-   nicht für sample-genaues Recording-Timing.
+2. **Signalkette (alles native Web Audio Nodes, kein WASM/Neural Net):**
+   ```
+   Input (Scarlett)
+     → WaveShaperNode (Gain/Distortion, Sättigungskurve z.B. tanh-basiert)
+     → BiquadFilterNode "lowshelf" (Bass, ~100-150Hz)
+     → BiquadFilterNode "peaking" (Middle, ~800Hz-1kHz, Q einstellbar)
+     → BiquadFilterNode "highshelf" (Treble, ~3-5kHz)
+     → ConvolverNode (Reverb, kurze Room-IR) oder einfacher
+       DelayNode-Feedback-Reverb als Alternative
+     → Output Gain
+     → gemeinsamer Ausgang mit Drum-Sequencer
+   ```
+3. **Regler-Mapping:** Jeder UI-Regler (Gain/Treble/Middle/Bass/Reverb)
+   steuert live den entsprechenden `.gain`/Parameter-Wert des jeweiligen
+   Nodes.
+4. **Reverb-IR-Quelle:** kostenlose Impulse-Responses z.B. von OpenAIR,
+   Lizenz prüfen.
+5. **Bekannter Trade-off:** klingt wie ein solider klassischer Amp-Sim,
+   nicht wie ein durch KI gelerntes Abbild eines echten Röhrenamps (das
+   war NAMs Stärke). Für Latenzfreiheit/Spielbarkeit bewusst in Kauf
+   genommen.
+
+**Zurückgestellt, nicht verworfen – NAM als spätere Option:** Falls das
+Projekt später auf eine native Desktop-App umgebaut wird (z.B. Tauri +
+`cpal` für ASIO-Zugriff), könnte NAM dort ohne Browser-Latenz-Nachteil
+nachgerüstet werden. Bewusst zurückgestellt, kein aktueller Fokus.
 
 ## Aufgabe: Riff-Aufnahme (lokal speichern)
 

@@ -354,6 +354,23 @@ body {
   flex-basis: 100%;
 }
 
+.guitar-panel__latency {
+  color: var(--text-dim);
+}
+
+.guitar-panel__latency-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.guitar-panel__latency-value {
+  color: var(--accent-2);
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+}
+
 .transport {
   display: flex;
   align-items: center;

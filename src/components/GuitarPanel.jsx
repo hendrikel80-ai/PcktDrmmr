@@ -1,24 +1,32 @@
-import { useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function GuitarPanel({
   supported,
   connected,
   devices,
   selectedDeviceId,
-  modelInfo,
-  hasCabinetIR,
   onConnect,
   onDisconnect,
   onRefreshDevices,
-  onLoadModel,
-  onLoadCabinetIR,
-  onClearCabinetIR,
   onInputGainChange,
   onOutputGainChange,
+  onBassChange,
+  onMidChange,
+  onTrebleChange,
+  onReverbChange,
+  onGetLatencyInfo,
 }) {
   const [error, setError] = useState('');
-  const modelInputRef = useRef(null);
-  const irInputRef = useRef(null);
+  const [latencyInfo, setLatencyInfo] = useState(null);
+
+  function refreshLatency() {
+    setLatencyInfo(onGetLatencyInfo());
+  }
+
+  useEffect(() => {
+    if (connected) refreshLatency();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected]);
 
   async function handleConnect() {
     setError('');
@@ -35,32 +43,6 @@ export default function GuitarPanel({
       await onConnect(e.target.value);
     } catch (err) {
       setError(err.message);
-    }
-  }
-
-  async function handleModelFile(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setError('');
-    try {
-      await onLoadModel(file);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      e.target.value = '';
-    }
-  }
-
-  async function handleIrFile(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setError('');
-    try {
-      await onLoadCabinetIR(file);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      e.target.value = '';
     }
   }
 
@@ -103,53 +85,60 @@ export default function GuitarPanel({
       </div>
 
       {connected && (
-        <div className="guitar-panel__row">
-          <button type="button" className="guitar-panel__file-btn" onClick={() => modelInputRef.current?.click()}>
-            🎛 Amp-Modell laden (.nam)
-          </button>
-          <input
-            ref={modelInputRef}
-            type="file"
-            accept=".nam,.json"
-            className="guitar-panel__file-input"
-            onChange={handleModelFile}
-          />
-          {modelInfo && (
-            <span className="guitar-panel__model-info">
-              {modelInfo.name}
-              {modelInfo.expectedSampleRate ? ` · ${modelInfo.expectedSampleRate} Hz` : ''}
-            </span>
-          )}
-
-          <button type="button" className="guitar-panel__file-btn" onClick={() => irInputRef.current?.click()}>
-            🔊 Cabinet-IR laden (.wav)
-          </button>
-          <input
-            ref={irInputRef}
-            type="file"
-            accept=".wav"
-            className="guitar-panel__file-input"
-            onChange={handleIrFile}
-          />
-          {hasCabinetIR && (
-            <button type="button" className="guitar-panel__file-btn" onClick={onClearCabinetIR}>
-              IR entfernen
-            </button>
-          )}
-        </div>
-      )}
-
-      {connected && (
         <div className="guitar-panel__row guitar-panel__gains">
-          <label>
-            Input
+          <label title="Pegel vor der Verzerrungsstufe — mehr Gain = mehr Sättigung, wie bei einem echten Amp">
+            Gain
             <input
               type="range"
               min={0}
-              max={2}
-              step={0.05}
+              max={8}
+              step={0.1}
               defaultValue={1}
               onChange={(e) => onInputGainChange(Number(e.target.value))}
+            />
+          </label>
+          <label>
+            Bass
+            <input
+              type="range"
+              min={-12}
+              max={12}
+              step={0.5}
+              defaultValue={0}
+              onChange={(e) => onBassChange(Number(e.target.value))}
+            />
+          </label>
+          <label>
+            Middle
+            <input
+              type="range"
+              min={-12}
+              max={12}
+              step={0.5}
+              defaultValue={0}
+              onChange={(e) => onMidChange(Number(e.target.value))}
+            />
+          </label>
+          <label>
+            Treble
+            <input
+              type="range"
+              min={-12}
+              max={12}
+              step={0.5}
+              defaultValue={0}
+              onChange={(e) => onTrebleChange(Number(e.target.value))}
+            />
+          </label>
+          <label title="Anteil des Raumhalls (Reverb), der zum trockenen Signal zugemischt wird">
+            Reverb
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.02}
+              defaultValue={0.15}
+              onChange={(e) => onReverbChange(Number(e.target.value))}
             />
           </label>
           <label>
@@ -163,8 +152,27 @@ export default function GuitarPanel({
               onChange={(e) => onOutputGainChange(Number(e.target.value))}
             />
           </label>
+        </div>
+      )}
+
+      {connected && (
+        <div className="guitar-panel__row guitar-panel__latency">
+          <button type="button" className="guitar-panel__file-btn" onClick={refreshLatency}>
+            🔄 Latenz messen
+          </button>
+          {latencyInfo && (
+            <span className="guitar-panel__latency-value">
+              ~{latencyInfo.totalMs} ms
+              {latencyInfo.totalIsPartial ? '+' : ''} (
+              {latencyInfo.inputMs !== null && <>{latencyInfo.inputMs} Eingabe + </>}
+              {latencyInfo.baseMs} Puffer + {latencyInfo.outputMs} Ausgabe, @{latencyInfo.sampleRate} Hz)
+              {latencyInfo.totalIsPartial && ' — Eingabe-Latenz vom Browser nicht gemeldet, Summe unvollständig'}
+            </span>
+          )}
           <span className="guitar-panel__latency-hint">
-            Browser-Audio hat etwas mehr Latenz als native ASIO/CoreAudio-Setups — zum Mitspielen unkritisch.
+            Eigener Amp-Simulator aus nativen Web-Audio-Nodes — keine Neural-Net-Inferenz, also keine
+            zusätzliche Rechen-Latenz obendrauf. Verbleibende Latenz ist reine Browser-/Windows-
+            Audio-Pipeline (WASAPI), zum Mitspielen unkritisch.
           </span>
         </div>
       )}

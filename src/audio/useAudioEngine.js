@@ -4,7 +4,6 @@ import { GuitarEngine } from './GuitarEngine';
 import { Recorder } from './Recorder';
 import { Scheduler } from './Scheduler';
 import { DEFAULT_KIT_ID, getKit } from '../data/kits';
-import * as ampLibrary from '../data/ampLibrary';
 
 function formatTimestamp(date = new Date()) {
   const pad = (n) => String(n).padStart(2, '0');
@@ -19,8 +18,6 @@ export function useAudioEngine(pattern) {
   const engineRef = useRef(null);
   const patternRef = useRef(pattern);
   const recordingsRef = useRef([]);
-  const lastModelTextRef = useRef(null); // Rohtext des zuletzt geladenen .nam-Modells (für "In Bibliothek speichern")
-  const lastIRBufferRef = useRef(null); // ArrayBuffer der zuletzt geladenen Cabinet-IR
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentStep, setCurrentStep] = useState(-1);
   const [kitId, setKitId] = useState(DEFAULT_KIT_ID);
@@ -28,12 +25,8 @@ export function useAudioEngine(pattern) {
   const [guitarConnected, setGuitarConnected] = useState(false);
   const [guitarDevices, setGuitarDevices] = useState([]);
   const [selectedGuitarDeviceId, setSelectedGuitarDeviceId] = useState(null);
-  const [guitarModelInfo, setGuitarModelInfo] = useState(null);
-  const [hasCabinetIR, setHasCabinetIR] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordings, setRecordings] = useState([]);
-  const [libraryModels, setLibraryModels] = useState([]);
-  const [libraryIRs, setLibraryIRs] = useState([]);
 
   patternRef.current = pattern;
   recordingsRef.current = recordings;
@@ -68,7 +61,7 @@ export function useAudioEngine(pattern) {
 
     // Debug-Zugriff in der Browser-Konsole (nur Dev-Build), z.B. für
     // Latenz-Diagnose: window.__pocketDrummer.audioCtx.baseLatency /
-    // .outputLatency, oder window.__pocketDrummer.guitar.namNode.
+    // .outputLatency.
     if (import.meta.env.DEV) {
       window.__pocketDrummer = engineRef.current;
     }
@@ -79,12 +72,6 @@ export function useAudioEngine(pattern) {
   useEffect(() => {
     engineRef.current?.scheduler.setPattern(patternRef.current);
   }, [pattern]);
-
-  useEffect(() => {
-    if (!ampLibrary.isSupported()) return;
-    ampLibrary.listModels().then(setLibraryModels);
-    ampLibrary.listIRs().then(setLibraryIRs);
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -156,103 +143,32 @@ export function useAudioEngine(pattern) {
     setGuitarDevices(await guitar.listInputDevices());
   }, []);
 
-  const loadGuitarModel = useCallback(async (file) => {
-    const guitar = engineRef.current?.guitar;
-    if (!guitar) throw new Error('Erst Gitarren-Eingang verbinden.');
-    const json = await file.text();
-    const info = await guitar.loadModel(json);
-    lastModelTextRef.current = json;
-    setGuitarModelInfo({ name: file.name, ...info });
-  }, []);
-
-  const loadCabinetIR = useCallback(async (file) => {
-    const { audioCtx, guitar } = ensureEngine();
-    const arrayBuffer = await file.arrayBuffer();
-    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-    lastIRBufferRef.current = arrayBuffer;
-    guitar.loadCabinetIR(audioBuffer);
-    setHasCabinetIR(true);
-  }, [ensureEngine]);
-
-  // --- Lokale Amp-Bibliothek (IndexedDB) ---
-
-  const refreshLibrary = useCallback(async () => {
-    if (!ampLibrary.isSupported()) return;
-    setLibraryModels(await ampLibrary.listModels());
-    setLibraryIRs(await ampLibrary.listIRs());
-  }, []);
-
-  const saveCurrentModelToLibrary = useCallback(
-    async (name) => {
-      if (!lastModelTextRef.current) throw new Error('Kein Amp-Modell geladen.');
-      await ampLibrary.saveModel({ name, namText: lastModelTextRef.current });
-      await refreshLibrary();
-    },
-    [refreshLibrary]
-  );
-
-  const loadModelFromLibrary = useCallback(async (id) => {
-    const guitar = engineRef.current?.guitar;
-    if (!guitar) throw new Error('Erst Gitarren-Eingang verbinden.');
-    const entry = await ampLibrary.getModel(id);
-    if (!entry) throw new Error('Modell nicht gefunden.');
-    const info = await guitar.loadModel(entry.namText);
-    lastModelTextRef.current = entry.namText;
-    setGuitarModelInfo({ name: entry.name, ...info });
-  }, []);
-
-  const deleteLibraryModel = useCallback(
-    async (id) => {
-      await ampLibrary.deleteModel(id);
-      await refreshLibrary();
-    },
-    [refreshLibrary]
-  );
-
-  const saveCurrentIRToLibrary = useCallback(
-    async (name) => {
-      if (!lastIRBufferRef.current) throw new Error('Keine Cabinet-IR geladen.');
-      await ampLibrary.saveIR({ name, arrayBuffer: lastIRBufferRef.current });
-      await refreshLibrary();
-    },
-    [refreshLibrary]
-  );
-
-  const loadIRFromLibrary = useCallback(
-    async (id) => {
-      const { audioCtx, guitar } = ensureEngine();
-      const entry = await ampLibrary.getIR(id);
-      if (!entry) throw new Error('IR nicht gefunden.');
-      // decodeAudioData "verbraucht" den Buffer (detached nach Gebrauch) — Kopie nehmen,
-      // damit die Bibliothek den Original-Buffer für spätere Ladevorgänge behält.
-      const audioBuffer = await audioCtx.decodeAudioData(entry.arrayBuffer.slice(0));
-      lastIRBufferRef.current = entry.arrayBuffer;
-      guitar.loadCabinetIR(audioBuffer);
-      setHasCabinetIR(true);
-    },
-    [ensureEngine]
-  );
-
-  const deleteLibraryIR = useCallback(
-    async (id) => {
-      await ampLibrary.deleteIR(id);
-      await refreshLibrary();
-    },
-    [refreshLibrary]
-  );
-
-  const clearCabinetIR = useCallback(() => {
-    engineRef.current?.guitar.clearCabinetIR();
-    lastIRBufferRef.current = null;
-    setHasCabinetIR(false);
-  }, []);
-
   const setGuitarInputGain = useCallback((value) => {
     engineRef.current?.guitar.setInputGain(value);
   }, []);
 
   const setGuitarOutputGain = useCallback((value) => {
     engineRef.current?.guitar.setOutputGain(value);
+  }, []);
+
+  const setGuitarBass = useCallback((db) => {
+    engineRef.current?.guitar.setBass(db);
+  }, []);
+
+  const setGuitarMid = useCallback((db) => {
+    engineRef.current?.guitar.setMid(db);
+  }, []);
+
+  const setGuitarTreble = useCallback((db) => {
+    engineRef.current?.guitar.setTreble(db);
+  }, []);
+
+  const setGuitarReverb = useCallback((amount) => {
+    engineRef.current?.guitar.setReverb(amount);
+  }, []);
+
+  const getLatencyInfo = useCallback(() => {
+    return engineRef.current?.guitar.getLatencyInfo() ?? null;
   }, []);
 
   const toggleRecording = useCallback(async () => {
@@ -296,29 +212,20 @@ export function useAudioEngine(pattern) {
     guitarConnected,
     guitarDevices,
     selectedGuitarDeviceId,
-    guitarModelInfo,
-    hasCabinetIR,
     connectGuitar,
     disconnectGuitar,
     refreshGuitarDevices,
-    loadGuitarModel,
-    loadCabinetIR,
-    clearCabinetIR,
     setGuitarInputGain,
     setGuitarOutputGain,
+    setGuitarBass,
+    setGuitarMid,
+    setGuitarTreble,
+    setGuitarReverb,
+    getLatencyInfo,
     recordingSupported: Recorder.isSupported(),
     isRecording,
     recordings,
     toggleRecording,
     deleteRecording,
-    librarySupported: ampLibrary.isSupported(),
-    libraryModels,
-    libraryIRs,
-    saveCurrentModelToLibrary,
-    loadModelFromLibrary,
-    deleteLibraryModel,
-    saveCurrentIRToLibrary,
-    loadIRFromLibrary,
-    deleteLibraryIR,
   };
 }
