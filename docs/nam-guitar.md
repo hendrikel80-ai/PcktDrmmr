@@ -172,6 +172,41 @@ einzigen wirksamen Hebel:
 3. **CPU-Last reduzieren** — andere Programme/Tabs schließen, damit der
    Audio-Thread seinen 128-Sample-Zeitrahmen zuverlässiger einhält.
 
+### Auflösung: eigentliche Ursache war ein USB-Port
+
+Nach dem Umstieg auf den eigenen Amp-Simulator (siehe
+`docs/guitar-ampsim.md`) blieb die Latenz weiterhin bei ~75-80 ms — und
+zwar **auch in Reaper über echtes ASIO**, nicht nur im Browser. Das war
+der entscheidende Hinweis: Ein sauber konfiguriertes ASIO-Setup sollte
+nie in derselben Größenordnung wie ein Browser über WASAPI liegen. Der
+gemeinsame Nenner war also nicht Software (Browser/WASAPI), sondern etwas
+system-/hardwareweites.
+
+**Ursache:** der genutzte USB-Port. Wechsel auf einen anderen physischen
+Port hat das Problem vollständig behoben — sowohl in Reaper als auch
+vermutlich im Browser (dieselbe Größenordnung wie zuvor, aber jetzt vom
+richtigen Port aus gemessen). Klassische Ursache dafür: bestimmte
+USB-3.x-Controller/-Hubs haben bekannte Latenzprobleme mit
+Audio-Interfaces, oft hilft ein Wechsel auf einen anderen Controller
+(z. B. ein direkt am Mainboard angebundener Port statt Hub/Frontpanel).
+
+**Finales Setup für latenzkritisches Live-Spiel:**
+
+- **Gitarre/Amp-Ton:** Reaper über ASIO (Focusrite USB ASIO, kleine
+  Puffergröße), FX-Kette komplett aus mitgelieferten Reaper-Bordmitteln
+  (`JS: Saturation` für die Verzerrung, `ReaEQ` für Bass/Mid/Treble) —
+  keine Fremd-Plugins, kein Download-/Versions-Risiko wie bei NAM.
+- **Drums:** weiterhin Pocket Drummer im Browser (Step-Sequencer,
+  KI-Generierung, Aufnahme) — dafür ist die Browser-Latenz unkritisch,
+  da es reine Wiedergabe ohne Eingabe-Feedback-Schleife ist.
+- **Zusammenführen:** beide Programme laufen gleichzeitig, das
+  Focusrite-Interface mischt ASIO- und WASAPI-Ausgabe von selbst
+  ("Multi-Client") — kein Voicemeeter oder sonstiges Routing-Tool nötig.
+
+Damit ist die Gitarre über Reaper spielbar-latenzarm, während Pocket
+Drummer weiterhin die eigentliche App-Funktionalität (Beats erzeugen,
+Pattern speichern, gemeinsam aufnehmen) liefert.
+
 ## Modell-Wechsel während der Wiedergabe
 
 `loadModel()` pausiert das Rendering an diesem Node kurz (laut Engine-Doku
