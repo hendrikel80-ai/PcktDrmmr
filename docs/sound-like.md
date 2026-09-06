@@ -48,3 +48,25 @@ abgerechnet (zusätzlich zu den normalen Token-Kosten). `max_uses: 3` in
 TONE3000-Downloads unterliegen meist der "T3K"-Lizenz: private/kommerzielle
 Nutzung der Audiodaten erlaubt, aber keine Weiterverbreitung der Rohdatei
 selbst.
+
+## Austauschbarer KI-Provider
+
+Sowohl Sound Like als auch die Drum-Pattern-Generierung laufen über
+`server/aiProvider.js` statt direkt gegen Anthropics API — welcher Provider
+tatsächlich läuft, steuert `AI_PROVIDER` in `.env` (`anthropic` | `deepseek`,
+Default `anthropic`, siehe `.env.example`).
+
+**Wichtige Einschränkung bei DeepSeek:** dessen öffentliche API hat kein zu
+Anthropics `web_search_20250305` äquivalentes serverseitiges Web-Search-Tool.
+Mit `AI_PROVIDER=deepseek` fällt Sound Like automatisch auf reines
+Modellwissen zurück (keine Live-Recherche) — die UI zeigt das dann als
+Warnhinweis im Ergebnis-Fenster an (`usedWebSearch: false` in der API-Antwort),
+statt eine Recherche vorzutäuschen, die nicht stattgefunden hat. Die
+Drum-Pattern-Generierung ist davon nicht betroffen, die braucht keine
+Websuche.
+
+Einen weiteren Provider ergänzen: in `server/aiProvider.js` eine neue
+`call<Provider>({ system, userMessage, maxTokens, webSearch })`-Funktion
+schreiben (liefert `{ text, usedWebSearch }`) und in der `PROVIDERS`-Map
+eintragen — `generatePattern.js`/`soundLike.js` müssen dafür nicht angefasst
+werden.

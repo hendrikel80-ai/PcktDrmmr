@@ -732,6 +732,12 @@ body {
   color: var(--accent);
 }
 
+.sound-like-modal__no-search {
+  margin: 0 0 12px;
+  color: var(--accent);
+  font-size: 0.8rem;
+}
+
 .sound-like-modal__results {
   list-style: none;
   margin: 0;

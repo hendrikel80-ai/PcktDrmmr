@@ -16,6 +16,7 @@ export default function SoundLike() {
   const [status, setStatus] = useState('idle'); // idle | loading | error
   const [errorMessage, setErrorMessage] = useState('');
   const [suggestions, setSuggestions] = useState([]);
+  const [usedWebSearch, setUsedWebSearch] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
   const [searchedFor, setSearchedFor] = useState('');
 
@@ -46,6 +47,7 @@ export default function SoundLike() {
       }
 
       setSuggestions(data.suggestions);
+      setUsedWebSearch(Boolean(data.usedWebSearch));
       setSearchedFor(trimmed);
       setIsOpen(true);
       setStatus('idle');
@@ -88,6 +90,13 @@ export default function SoundLike() {
                 ✕
               </button>
             </div>
+
+            {!usedWebSearch && (
+              <p className="sound-like-modal__no-search">
+                ⚠ Der aktuell eingestellte KI-Provider unterstützt keine Live-Websuche — diese
+                Vorschläge stammen aus allgemeinem Modellwissen, nicht aus aktueller Recherche.
+              </p>
+            )}
 
             <ul className="sound-like-modal__results">
               {suggestions.map((s, i) => (

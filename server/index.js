@@ -1,8 +1,9 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { generatePattern, UpstreamError } from './generatePattern.js';
+import { generatePattern } from './generatePattern.js';
 import { soundLike } from './soundLike.js';
+import { UpstreamError } from './aiProvider.js';
 
 // Eigener Variablenname statt PORT: unter `npm run dev:full` (concurrently)
 // erben sowohl der Vite- als auch der Backend-Prozess dieselbe Shell-Umgebung
@@ -50,8 +51,8 @@ app.post('/api/sound-like', async (req, res) => {
   }
 
   try {
-    const suggestions = await soundLike(query);
-    res.json({ suggestions });
+    const { suggestions, usedWebSearch } = await soundLike(query);
+    res.json({ suggestions, usedWebSearch });
   } catch (err) {
     const status = err instanceof UpstreamError ? err.status : 500;
     console.error('sound-like failed:', err.message);
