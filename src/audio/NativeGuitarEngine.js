@@ -35,11 +35,21 @@ export class NativeGuitarEngine {
     this.connected = true;
   }
 
-  disconnectInput() {
+  // Must be awaited before the UI treats the guitar as disconnected — the
+  // Rust side tears the ASIO stream down synchronously (ASIOStop,
+  // ASIODisposeBuffers, ASIOExit) inside this call, so as long as callers
+  // wait for it, a subsequent connectInput() can never race ahead of it.
+  // An earlier fire-and-forget version flipped `connected` immediately,
+  // which let a quick reconnect fire start_passthrough before Tauri had
+  // even dispatched the pending stop_passthrough — since Tauri doesn't
+  // guarantee command execution order across separate invokes, the stale
+  // stop could then land AFTER the new session was created and tear that
+  // one down instead, leaving a corrupted mix (the exact symptoms this
+  // was fixed for: guitar audio not actually stopping, mic silent
+  // afterward, audible noise, gate seemingly not working).
+  async disconnectInput() {
+    await window.__TAURI__.core.invoke('stop_passthrough');
     this.connected = false;
-    window.__TAURI__.core.invoke('stop_passthrough').catch((err) => {
-      console.error('stop_passthrough failed:', err);
-    });
   }
 
   // Opens the native file picker (real filesystem path, unlike a browser

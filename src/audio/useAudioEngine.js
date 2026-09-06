@@ -154,8 +154,14 @@ export function useAudioEngine(pattern) {
     [ensureEngine]
   );
 
-  const disconnectGuitar = useCallback(() => {
-    engineRef.current?.guitar.disconnectInput();
+  // Awaits disconnectInput() before flipping `guitarConnected` — that keeps
+  // GuitarPanel/MicPanel showing the "connected" UI (select + Trennen)
+  // until the native ASIO session has actually torn down, so the user
+  // can't click "Verbinden" again while the old session is still being
+  // dismantled (see the comment on NativeGuitarEngine.disconnectInput for
+  // why that race was corrupting the audio mix).
+  const disconnectGuitar = useCallback(async () => {
+    await engineRef.current?.guitar.disconnectInput();
     setGuitarConnected(false);
   }, []);
 
