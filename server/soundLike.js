@@ -1,9 +1,9 @@
-import { SUGGEST_AMPS_SYSTEM_PROMPT } from './suggestAmpsPrompt.js';
+import { SOUND_LIKE_SYSTEM_PROMPT } from './soundLikePrompt.js';
 import { UpstreamError } from './generatePattern.js';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
-const MAX_TOKENS = 600;
+const MAX_TOKENS = 1200; // Websuche braucht mehr Spielraum als reines Modellwissen
 
 function extractJson(rawText) {
   const trimmed = rawText.trim();
@@ -25,7 +25,7 @@ function validateSuggestions(parsed) {
   }
 }
 
-export async function suggestAmps(userPrompt) {
+export async function soundLike(query) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     throw new UpstreamError('ANTHROPIC_API_KEY ist nicht gesetzt (siehe .env.example)', 500);
@@ -41,8 +41,13 @@ export async function suggestAmps(userPrompt) {
     body: JSON.stringify({
       model: MODEL,
       max_tokens: MAX_TOKENS,
-      system: SUGGEST_AMPS_SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userPrompt }],
+      system: SOUND_LIKE_SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: query }],
+      // Serverseitiges Web-Search-Tool: Claude recherchiert das tatsächliche
+      // Equipment selbst, statt sich nur auf eingefrorenes Trainingswissen zu
+      // verlassen (siehe soundLikePrompt.js für die Tone3000-Ausnahme).
+      // max_uses begrenzt Kosten/Latenz pro Anfrage.
+      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
     }),
   });
 
@@ -52,8 +57,14 @@ export async function suggestAmps(userPrompt) {
   }
 
   const data = await response.json();
-  const rawText = data.content?.[0]?.text;
-  if (typeof rawText !== 'string') {
+  // Mit aktiviertem Web-Search-Tool enthält `content` zusätzlich zu Text auch
+  // server_tool_use-/web_search_tool_result-Blöcke — nur die Text-Blöcke
+  // zusammen ergeben unsere JSON-Antwort.
+  const rawText = (data.content || [])
+    .filter((block) => block.type === 'text')
+    .map((block) => block.text)
+    .join('\n');
+  if (!rawText) {
     throw new UpstreamError('Claude API lieferte keinen Text-Content', 502);
   }
 

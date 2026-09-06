@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import SoundLike from './SoundLike';
 
 // Tauri command rejections for a Rust `Result<T, String>` reject the JS
 // promise with a plain string, not an Error object — err.message on a
@@ -138,6 +139,8 @@ export default function GuitarPanel({
         )}
         {error && <span className="guitar-panel__error">{error}</span>}
       </div>
+
+      {onLoadModel && <SoundLike />}
 
       {connected && onLoadModel && (
         <div className="guitar-panel__row">

@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { generatePattern, UpstreamError } from './generatePattern.js';
-import { suggestAmps } from './suggestAmps.js';
+import { soundLike } from './soundLike.js';
 
 // Eigener Variablenname statt PORT: unter `npm run dev:full` (concurrently)
 // erben sowohl der Vite- als auch der Backend-Prozess dieselbe Shell-Umgebung
@@ -37,24 +37,24 @@ app.post('/api/generate-pattern', async (req, res) => {
   }
 });
 
-app.post('/api/suggest-amps', async (req, res) => {
-  const prompt = typeof req.body?.prompt === 'string' ? req.body.prompt.trim() : '';
+app.post('/api/sound-like', async (req, res) => {
+  const query = typeof req.body?.query === 'string' ? req.body.query.trim() : '';
 
-  if (!prompt) {
-    return res.status(400).json({ error: 'prompt darf nicht leer sein' });
+  if (!query) {
+    return res.status(400).json({ error: 'query darf nicht leer sein' });
   }
-  if (prompt.length > MAX_PROMPT_LENGTH) {
+  if (query.length > MAX_PROMPT_LENGTH) {
     return res
       .status(400)
-      .json({ error: `prompt darf maximal ${MAX_PROMPT_LENGTH} Zeichen lang sein` });
+      .json({ error: `query darf maximal ${MAX_PROMPT_LENGTH} Zeichen lang sein` });
   }
 
   try {
-    const suggestions = await suggestAmps(prompt);
+    const suggestions = await soundLike(query);
     res.json({ suggestions });
   } catch (err) {
     const status = err instanceof UpstreamError ? err.status : 500;
-    console.error('suggest-amps failed:', err.message);
+    console.error('sound-like failed:', err.message);
     res.status(status).json({ error: err.message });
   }
 });

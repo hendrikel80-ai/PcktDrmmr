@@ -65,19 +65,18 @@ die Impulsantwort prozedural zur Laufzeit (exponentiell abklingendes
 Rauschen, ~1.2 s). Klingt dezenter/kürzer als ein echtes Hall-Sample,
 dafür lizenzfrei und ohne Asset-Ladezeit.
 
-## NAM als spätere Option (Tauri-Desktop)
+## NAM als spätere Option (Tauri-Desktop) — inzwischen umgesetzt
 
-Laut CLAUDE.md bewusst zurückgestellt, nicht verworfen: Der komplette
-NAM-Code (`NamEngine`, `loadModel`, etc.) bleibt in `GuitarEngine.js`
-erhalten und funktionsfähig, wird aber von der aktuellen Browser-UI
-nirgends mehr aufgerufen. Bei einem späteren Umbau auf eine native
-Desktop-App (z. B. Tauri + `cpal` für echten ASIO-Zugriff ohne
-Browser-Latenz-Nachteil) könnte NAM dort ohne den hier beschriebenen
-Kompromiss nachgerüstet werden — dort entfiele der Browser-WASM-Umweg,
-und die Rechenzeit-Problematik sähe unter Umständen anders aus.
+Laut CLAUDE.md bewusst zurückgestellt, nicht verworfen — und seitdem
+tatsächlich umgesetzt: der native Tauri/ASIO-Gitarrenpfad (`src-tauri/`,
+siehe `docs/nam-guitar.md`) läuft mit echter NAM-Inferenz ohne den hier
+beschriebenen Browser-WASM-Kompromiss. Der Browser-Pfad in
+`GuitarEngine.js` bleibt unverändert der klassische Web-Audio-Amp-Sim
+ohne NAM, für den Fall, dass Pocket Drummer mal ohne den Tauri-Shell
+(z. B. reiner `npm run dev`) genutzt wird.
 
-Die dazugehörige lokale Amp-Bibliothek (`src/data/ampLibrary.js`,
-`src/components/AmpLibrary.jsx`) und der KI-Amp-Finder
-(`src/components/AmpFinder.jsx`, `server/suggestAmps.js`) sind aus
-demselben Grund aus der UI entfernt, aber im Repo erhalten (siehe
-`docs/amp-library.md`).
+Die frühere lokale Amp-Bibliothek (IndexedDB, `AmpLibrary.jsx`) ist
+inzwischen entfernt statt reaktiviert — der native Pfad lädt `.nam`-Dateien
+direkt vom Dateisystem, eine zusätzliche Browser-Speicherung ist überflüssig.
+Der KI-Amp-Finder lebt als "Sound Like"-Feature weiter, siehe
+`docs/sound-like.md`.
