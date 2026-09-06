@@ -77,6 +77,9 @@ pub struct GuitarParams {
     delay_wet: AtomicU32,
     tuner_enabled: AtomicBool,
     recording_active: AtomicBool,
+    mic_enabled: AtomicBool,
+    mic_gain: AtomicU32,
+    mic_reverb_wet: AtomicU32,
 }
 
 fn load_f32(a: &AtomicU32) -> f32 {
@@ -100,6 +103,9 @@ impl GuitarParams {
             delay_wet: AtomicU32::new(0.3f32.to_bits()),
             tuner_enabled: AtomicBool::new(false),
             recording_active: AtomicBool::new(false),
+            mic_enabled: AtomicBool::new(false),
+            mic_gain: AtomicU32::new(1.0f32.to_bits()),
+            mic_reverb_wet: AtomicU32::new(0.15f32.to_bits()),
         })
     }
 }
@@ -243,6 +249,12 @@ pub fn start(state: &AsioState) -> Result<String, String> {
 
     // Guitar is on input channel 1 (confirmed repeatedly during Phase 0).
     const GUITAR_IN_CH: usize = 1;
+    // The Scarlett Solo has exactly one other input (its dedicated mic
+    // preamp) — inferred by elimination on a 2-in interface, not directly
+    // confirmed by ear the way GUITAR_IN_CH was. If vocals come out on the
+    // wrong channel (or silent) on a different interface, this is the
+    // first thing to check.
+    const MIC_IN_CH: usize = 0;
 
     // Owned by the callback closure directly (not shared/Mutex'd) — only
     // the ASIO callback thread ever touches these, serially, one block at
@@ -250,10 +262,18 @@ pub fn start(state: &AsioState) -> Result<String, String> {
     // allocates.
     let mut scratch_in = vec![0.0f32; buffer_size];
     let mut scratch_out = vec![0.0f32; buffer_size];
+    let mut scratch_mic = vec![0.0f32; buffer_size];
     let mut gate = NoiseGate::new(sample_rate);
     let mut tone_stack = ToneStack::new(sample_rate);
     let mut delay = Delay::new(sample_rate);
     let mut reverb = Reverb::new(sample_rate);
+    // Independent gate/reverb instances (own state, not shared with the
+    // guitar chain above) — a mic's noise floor and room character are
+    // unrelated to the guitar's. Same Reverb type/tuning as the guitar
+    // (see reverb.rs's module doc for why it's damped rather than bright/
+    // metallic-sounding), just its own wet level and internal state.
+    let mut mic_gate = NoiseGate::new(sample_rate);
+    let mut mic_reverb = Reverb::new(sample_rate);
 
     // Owned solely by the audio thread across callbacks, like the DSP
     // state above — accumulation position within the currently-checked-out
@@ -291,11 +311,33 @@ pub fn start(state: &AsioState) -> Result<String, String> {
         let delay_wet = load_f32(&params_for_callback.delay_wet);
         let tuner_enabled = params_for_callback.tuner_enabled.load(Ordering::Relaxed);
         let recording_active = params_for_callback.recording_active.load(Ordering::Relaxed);
+        let mic_enabled = params_for_callback.mic_enabled.load(Ordering::Relaxed);
+        let mic_gain = load_f32(&params_for_callback.mic_gain);
+        let mic_reverb_wet = load_f32(&params_for_callback.mic_reverb_wet);
 
         let in_ptr = input.buffer_infos[GUITAR_IN_CH].buffers[idx] as *const i32;
         let in_slice = unsafe { std::slice::from_raw_parts(in_ptr, buffer_size) };
         for (dst, &src) in scratch_in.iter_mut().zip(in_slice) {
             *dst = (src as f32 / i32::MAX as f32) * input_gain;
+        }
+
+        // Vocal mic: independent input channel, own gain and gate, mixed
+        // straight into the final guitar mix further down — no NAM/EQ/
+        // delay/reverb (that chain is guitar-amp modeling, not what a
+        // voice needs). Skipped entirely while disabled, both to save the
+        // (tiny) processing cost and so an unplugged/muted mic channel
+        // can't leak hum/hiss into the mix by default.
+        if mic_enabled && MIC_IN_CH < num_in {
+            let mic_ptr = input.buffer_infos[MIC_IN_CH].buffers[idx] as *const i32;
+            let mic_slice = unsafe { std::slice::from_raw_parts(mic_ptr, buffer_size) };
+            for (dst, &src) in scratch_mic.iter_mut().zip(mic_slice) {
+                *dst = (src as f32 / i32::MAX as f32) * mic_gain;
+            }
+            mic_gate.process(&mut scratch_mic);
+            mic_reverb.set_wet(mic_reverb_wet);
+            mic_reverb.process(&mut scratch_mic);
+        } else {
+            scratch_mic.iter_mut().for_each(|s| *s = 0.0);
         }
 
         // Pitch tracking runs on the clean, pre-NAM/pre-FX signal. Only a
@@ -345,12 +387,14 @@ pub fn start(state: &AsioState) -> Result<String, String> {
         reverb.set_wet(reverb_wet);
         reverb.process(&mut scratch_out);
 
-        // Apply output gain in place so scratch_out holds the exact final
-        // (pre-int-conversion) signal once, for both the output loop below
+        // Apply output gain, then mix in the mic (already gain/gate-
+        // processed above, at its own independent level — not affected by
+        // the guitar's output_gain), so scratch_out ends up holding the
+        // exact final combined signal once, for both the output loop below
         // and the recording-tap capture — it's what actually reaches the
         // speakers, just not yet hardware-integer-encoded.
-        for s in scratch_out.iter_mut() {
-            *s = (*s * output_gain).clamp(-1.0, 1.0);
+        for (o, &m) in scratch_out.iter_mut().zip(scratch_mic.iter()) {
+            *o = (*o * output_gain + m).clamp(-1.0, 1.0);
         }
 
         // Recording tap: the native chain renders straight to hardware
@@ -505,6 +549,22 @@ pub fn get_tuner_reading(state: &AsioState) -> Result<Option<TunerReading>, Stri
 /// start()/stop() calls.
 pub fn set_recording_active(state: &AsioState, active: bool) -> Result<(), String> {
     with_params(state, |p| p.recording_active.store(active, Ordering::Relaxed))
+}
+
+/// Enables/disables the vocal mic input (see MIC_IN_CH in the callback).
+/// Off by default so an unplugged/unused mic channel never leaks hum or
+/// hiss into the mix — same reasoning as tuner_enabled gating the pitch
+/// search.
+pub fn set_mic_enabled(state: &AsioState, enabled: bool) -> Result<(), String> {
+    with_params(state, |p| p.mic_enabled.store(enabled, Ordering::Relaxed))
+}
+
+pub fn set_mic_gain(state: &AsioState, value: f32) -> Result<(), String> {
+    with_params(state, |p| store_f32(&p.mic_gain, value))
+}
+
+pub fn set_mic_reverb(state: &AsioState, amount: f32) -> Result<(), String> {
+    with_params(state, |p| store_f32(&p.mic_reverb_wet, amount))
 }
 
 /// Polled from JS (roughly every GUITAR_CHUNK_SIZE/sample_rate seconds,

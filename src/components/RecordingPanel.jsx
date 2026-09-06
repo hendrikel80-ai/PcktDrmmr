@@ -78,7 +78,7 @@ export default function RecordingPanel({
           {isRecording ? '⏹ Aufnahme stoppen' : '🔴 Aufnahme starten'}
         </button>
         {isRecording && (
-          <span className="recording-panel__live">Nimmt Drums + Gitarre (gemeinsamer Ausgang) auf …</span>
+          <span className="recording-panel__live">Nimmt Drums + Gitarre + Mikrofon (gemeinsamer Ausgang) auf …</span>
         )}
       </div>
 

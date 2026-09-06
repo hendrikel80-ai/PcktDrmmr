@@ -89,6 +89,21 @@ fn drain_guitar_audio(state: tauri::State<AsioState>) -> Result<GuitarAudioChunk
     asio_engine::drain_guitar_audio(&state)
 }
 
+#[tauri::command]
+fn set_mic_enabled(state: tauri::State<AsioState>, enabled: bool) -> Result<(), String> {
+    asio_engine::set_mic_enabled(&state, enabled)
+}
+
+#[tauri::command]
+fn set_mic_gain(state: tauri::State<AsioState>, value: f32) -> Result<(), String> {
+    asio_engine::set_mic_gain(&state, value)
+}
+
+#[tauri::command]
+fn set_mic_reverb(state: tauri::State<AsioState>, amount: f32) -> Result<(), String> {
+    asio_engine::set_mic_reverb(&state, amount)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -120,7 +135,10 @@ pub fn run() {
             set_tuner_enabled,
             get_tuner_reading,
             set_guitar_recording_active,
-            drain_guitar_audio
+            drain_guitar_audio,
+            set_mic_enabled,
+            set_mic_gain,
+            set_mic_reverb
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

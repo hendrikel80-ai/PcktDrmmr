@@ -218,6 +218,37 @@ body {
   color: var(--text-dim);
 }
 
+.mic-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  font-size: 0.85rem;
+}
+
+.mic-panel--waiting {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.mic-panel__row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.mic-panel__row label:not(.guitar-panel__latency-toggle) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-dim);
+}
+
 .recording-panel {
   display: flex;
   flex-direction: column;

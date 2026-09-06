@@ -199,6 +199,21 @@ export function useAudioEngine(pattern) {
     engineRef.current?.guitar.setDelay?.(amount);
   }, []);
 
+  // Native-only (NativeGuitarEngine) — the vocal mic is a second channel
+  // on the same native audio interface, so it has no browser-GuitarEngine
+  // equivalent at all. Optional chaining keeps this a silent no-op there.
+  const setMicEnabled = useCallback((enabled) => {
+    engineRef.current?.guitar.setMicEnabled?.(enabled);
+  }, []);
+
+  const setMicGain = useCallback((value) => {
+    engineRef.current?.guitar.setMicGain?.(value);
+  }, []);
+
+  const setMicReverb = useCallback((amount) => {
+    engineRef.current?.guitar.setMicReverb?.(amount);
+  }, []);
+
   // Native-only (NativeGuitarEngine) — the browser GuitarEngine has no
   // pitch detection. Optional chaining keeps this a silent no-op there.
   const setGuitarTunerEnabled = useCallback((enabled) => {
@@ -348,6 +363,9 @@ export function useAudioEngine(pattern) {
     setGuitarReverb,
     setGuitarDelayEnabled,
     setGuitarDelay,
+    setMicEnabled,
+    setMicGain,
+    setMicReverb,
     setGuitarTunerEnabled,
     tunerReading,
     getLatencyInfo,

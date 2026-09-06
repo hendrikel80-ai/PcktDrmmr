@@ -7,6 +7,7 @@ import PromptBar from './components/PromptBar';
 import KitSelector from './components/KitSelector';
 import PatternManager from './components/PatternManager';
 import GuitarPanel from './components/GuitarPanel';
+import MicPanel from './components/MicPanel';
 import RecordingPanel from './components/RecordingPanel';
 import { isTauriRuntime } from './utils/platform';
 
@@ -35,6 +36,9 @@ export default function App() {
     setGuitarReverb,
     setGuitarDelayEnabled,
     setGuitarDelay,
+    setMicEnabled,
+    setMicGain,
+    setMicReverb,
     setGuitarTunerEnabled,
     tunerReading,
     getLatencyInfo,
@@ -86,6 +90,15 @@ export default function App() {
         onLoadModel={isTauriRuntime() ? loadGuitarModel : undefined}
         modelInfo={guitarModelInfo}
       />
+
+      {isTauriRuntime() && (
+        <MicPanel
+          connected={guitarConnected}
+          onMicEnabledChange={setMicEnabled}
+          onMicGainChange={setMicGain}
+          onMicReverbChange={setMicReverb}
+        />
+      )}
 
       <RecordingPanel
         supported={recordingSupported}

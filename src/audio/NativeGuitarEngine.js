@@ -145,6 +145,22 @@ export class NativeGuitarEngine {
     }
   }
 
+  // Vocal mic — a second input channel on the same audio interface (see
+  // MIC_IN_CH in asio_engine.rs), mixed into the same signal that reaches
+  // the speakers and the recording tap. No separate "connect" step: it
+  // rides along on the ASIO session connectInput() already started.
+  setMicEnabled(enabled) {
+    window.__TAURI__.core.invoke('set_mic_enabled', { enabled }).catch(console.error);
+  }
+
+  setMicGain(value) {
+    window.__TAURI__.core.invoke('set_mic_gain', { value }).catch(console.error);
+  }
+
+  setMicReverb(amount) {
+    window.__TAURI__.core.invoke('set_mic_reverb', { amount }).catch(console.error);
+  }
+
   getLatencyInfo() {
     // No Web Audio Context to query on this path. The native chain's
     // real latency was already measured directly in Phase 0/1a (ASIO
