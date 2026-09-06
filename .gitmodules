@@ -1,0 +1,3 @@
+[submodule "src-tauri/vendor/NeuralAmpModelerCore"]
+	path = src-tauri/vendor/NeuralAmpModelerCore
+	url = https://github.com/sdatkinson/NeuralAmpModelerCore.git

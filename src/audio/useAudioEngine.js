@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { HybridDrumEngine } from './HybridDrumEngine';
 import { GuitarEngine } from './GuitarEngine';
+import { NativeGuitarEngine } from './NativeGuitarEngine';
+import { GuitarRecordingTap } from './GuitarRecordingTap';
 import { Recorder } from './Recorder';
 import { Scheduler } from './Scheduler';
 import { DEFAULT_KIT_ID, getKit } from '../data/kits';
+import { isTauriRuntime } from '../utils/platform';
 
 function formatTimestamp(date = new Date()) {
   const pad = (n) => String(n).padStart(2, '0');
@@ -25,8 +28,11 @@ export function useAudioEngine(pattern) {
   const [guitarConnected, setGuitarConnected] = useState(false);
   const [guitarDevices, setGuitarDevices] = useState([]);
   const [selectedGuitarDeviceId, setSelectedGuitarDeviceId] = useState(null);
+  const [guitarModelInfo, setGuitarModelInfo] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordings, setRecordings] = useState([]);
+  const [tunerEnabled, setTunerEnabledState] = useState(false);
+  const [tunerReading, setTunerReading] = useState(null);
 
   patternRef.current = pattern;
   recordingsRef.current = recordings;
@@ -52,11 +58,27 @@ export function useAudioEngine(pattern) {
     masterOut.connect(recordingDestination);
     const recorder = new Recorder(recordingDestination.stream);
 
+    // Recording-only side channel for natively-rendered guitar audio (see
+    // GuitarRecordingTap.js) — connects ONLY to recordingDestination, not
+    // to masterOut/audioCtx.destination, so the guitar (already monitored
+    // directly through ASIO) isn't also heard a second time through the
+    // browser. No-op in practice unless the native engine actually pushes
+    // samples into it (browser GuitarEngine's audio already reaches
+    // recordingDestination via masterOut, untouched).
+    const guitarRecordingTap = new GuitarRecordingTap(audioCtx, recordingDestination);
+
     const engine = new HybridDrumEngine(audioCtx, getKit(DEFAULT_KIT_ID), masterOut);
     const scheduler = new Scheduler(audioCtx, engine);
     scheduler.onStep = (step) => setCurrentStep(step);
-    const guitar = new GuitarEngine(audioCtx, masterOut);
-    engineRef.current = { audioCtx, masterOut, engine, scheduler, guitar, recorder };
+    // Inside the Tauri shell, drive the real native ASIO passthrough
+    // instead of the browser Web Audio amp-sim — same method surface on
+    // both, see NativeGuitarEngine.js. Its audio never touches audioCtx/
+    // masterOut; it combines with the drums only at the hardware output
+    // (monitoring) and via guitarRecordingTap above (recording).
+    const guitar = isTauriRuntime()
+      ? new NativeGuitarEngine()
+      : new GuitarEngine(audioCtx, masterOut);
+    engineRef.current = { audioCtx, masterOut, engine, scheduler, guitar, recorder, guitarRecordingTap };
     engine.loadSamples(DEFAULT_KIT_ID); // no-op falls keine echten Samples vorliegen
 
     // Debug-Zugriff in der Browser-Konsole (nur Dev-Build), z.B. für
@@ -167,16 +189,63 @@ export function useAudioEngine(pattern) {
     engineRef.current?.guitar.setReverb(amount);
   }, []);
 
+  // Native-only (NativeGuitarEngine) — the browser GuitarEngine has no
+  // delay effect. Optional chaining keeps this a silent no-op there.
+  const setGuitarDelayEnabled = useCallback((enabled) => {
+    engineRef.current?.guitar.setDelayEnabled?.(enabled);
+  }, []);
+
+  const setGuitarDelay = useCallback((amount) => {
+    engineRef.current?.guitar.setDelay?.(amount);
+  }, []);
+
+  // Native-only (NativeGuitarEngine) — the browser GuitarEngine has no
+  // pitch detection. Optional chaining keeps this a silent no-op there.
+  const setGuitarTunerEnabled = useCallback((enabled) => {
+    engineRef.current?.guitar.setTunerEnabled?.(enabled);
+    setTunerEnabledState(enabled);
+    if (!enabled) setTunerReading(null);
+  }, []);
+
+  // Polls the latest pitch reading while the tuner is switched on. Polling
+  // (not a push event) keeps this symmetric with how every other guitar
+  // control already works here — plain invoke() calls, no Tauri event
+  // plumbing needed for a ~100ms-latency display value.
+  useEffect(() => {
+    if (!tunerEnabled) return undefined;
+    const guitar = engineRef.current?.guitar;
+    if (!guitar?.getTunerReading) return undefined;
+    const id = setInterval(async () => {
+      const reading = await guitar.getTunerReading();
+      setTunerReading(reading);
+    }, 100);
+    return () => clearInterval(id);
+  }, [tunerEnabled]);
+
   const getLatencyInfo = useCallback(() => {
     return engineRef.current?.guitar.getLatencyInfo() ?? null;
   }, []);
 
+  // Native-only (NativeGuitarEngine) — the browser GuitarEngine has no
+  // model concept, it's a fixed classic amp-sim. No-op there.
+  const loadGuitarModel = useCallback(async () => {
+    const guitar = engineRef.current?.guitar;
+    if (!guitar?.pickAndLoadModel) return null;
+    const info = await guitar.pickAndLoadModel();
+    if (info) setGuitarModelInfo(info);
+    return info;
+  }, []);
+
   const toggleRecording = useCallback(async () => {
-    const { audioCtx, recorder } = ensureEngine();
+    const { audioCtx, scheduler, recorder, guitar, guitarRecordingTap } = ensureEngine();
     if (audioCtx.state === 'suspended') {
       await audioCtx.resume();
     }
     if (recorder.isRecording) {
+      // Native-only — stop capture on the Rust side before finishing the
+      // Recorder, so a slightly-lagging drain doesn't hand back guitar
+      // audio after the recording's already been closed.
+      guitar.setRecordingActive?.(false);
       const blob = await recorder.stop();
       const url = URL.createObjectURL(blob);
       const extension = blob.type.includes('ogg') ? 'ogg' : 'webm';
@@ -187,10 +256,66 @@ export function useAudioEngine(pattern) {
       ]);
       setIsRecording(false);
     } else {
+      guitarRecordingTap.reset();
+      guitar.setRecordingActive?.(true);
       recorder.start();
       setIsRecording(true);
+      // Drums start together with the recording (right after the
+      // RecordingPanel count-in finishes) instead of requiring a separate
+      // Play click — if the pattern's already running, leave it alone.
+      if (!scheduler.isRunning) {
+        scheduler.setPattern(patternRef.current);
+        scheduler.start();
+        setIsPlaying(true);
+      }
     }
   }, [ensureEngine]);
+
+  // Native-only (NativeGuitarEngine.drainAudio) — polls captured post-FX
+  // guitar audio while recording and feeds it into guitarRecordingTap, so
+  // the recorded file contains guitar as well as drums (see
+  // GuitarRecordingTap.js for why this can't just be masterOut). No-op
+  // for the browser GuitarEngine, whose audio already reaches
+  // recordingDestination directly via masterOut.
+  useEffect(() => {
+    if (!isRecording || !guitarConnected) return undefined;
+    const { guitar, guitarRecordingTap } = engineRef.current ?? {};
+    if (!guitar?.drainAudio) return undefined;
+    const id = setInterval(async () => {
+      const chunk = await guitar.drainAudio();
+      if (chunk?.samples?.length) {
+        guitarRecordingTap.pushSamples(chunk.samples, chunk.sampleRate);
+      }
+    }, 50);
+    return () => clearInterval(id);
+  }, [isRecording, guitarConnected]);
+
+  // Metronome click for RecordingPanel's count-in (see there for timing —
+  // one call per counted beat). Goes straight to audioCtx.destination,
+  // not through masterOut, so it's never picked up by a recording even if
+  // one happened to be starting right at that instant: the click is a
+  // cue for the player, not part of the take.
+  const playCountInClick = useCallback(
+    (accent) => {
+      const { audioCtx } = ensureEngine();
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'square';
+      osc.frequency.value = accent ? 1800 : 1200;
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.4, now + 0.002);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.06);
+    },
+    [ensureEngine]
+  );
 
   const deleteRecording = useCallback((id) => {
     setRecordings((prev) => {
@@ -208,7 +333,7 @@ export function useAudioEngine(pattern) {
     kitId,
     isKitLoading,
     selectKit,
-    guitarSupported: GuitarEngine.isSupported(),
+    guitarSupported: isTauriRuntime() ? NativeGuitarEngine.isSupported() : GuitarEngine.isSupported(),
     guitarConnected,
     guitarDevices,
     selectedGuitarDeviceId,
@@ -221,11 +346,18 @@ export function useAudioEngine(pattern) {
     setGuitarMid,
     setGuitarTreble,
     setGuitarReverb,
+    setGuitarDelayEnabled,
+    setGuitarDelay,
+    setGuitarTunerEnabled,
+    tunerReading,
     getLatencyInfo,
+    guitarModelInfo,
+    loadGuitarModel,
     recordingSupported: Recorder.isSupported(),
     isRecording,
     recordings,
     toggleRecording,
+    playCountInClick,
     deleteRecording,
   };
 }

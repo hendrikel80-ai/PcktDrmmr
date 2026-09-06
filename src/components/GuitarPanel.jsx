@@ -1,5 +1,43 @@
 import { useEffect, useState } from 'react';
 
+// Tauri command rejections for a Rust `Result<T, String>` reject the JS
+// promise with a plain string, not an Error object — err.message on a
+// string is always undefined, which was silently swallowing every native
+// error here. Handle both shapes.
+function formatError(err) {
+  if (typeof err === 'string') return err;
+  return err?.message || String(err);
+}
+
+// Cent-Abweichung -50..+50 auf eine 0-100%-Position umgerechnet, damit
+// der Zeiger bei 0 Cent exakt in der Mitte der Anzeige steht.
+function TunerDisplay({ reading }) {
+  if (!reading) {
+    return <span className="guitar-panel__tuner-hint">Spiel eine einzelne Saite an…</span>;
+  }
+  const clampedCents = Math.max(-50, Math.min(50, reading.cents));
+  const pointerPercent = 50 + clampedCents;
+  const inTune = Math.abs(reading.cents) < 5;
+  return (
+    <div className="guitar-panel__tuner-display">
+      <span className={`guitar-panel__tuner-note${inTune ? ' guitar-panel__tuner-note--intune' : ''}`}>
+        {reading.noteName}
+      </span>
+      <div className="guitar-panel__tuner-bar">
+        <div className="guitar-panel__tuner-bar-center" />
+        <div
+          className={`guitar-panel__tuner-bar-pointer${inTune ? ' guitar-panel__tuner-bar-pointer--intune' : ''}`}
+          style={{ left: `${pointerPercent}%` }}
+        />
+      </div>
+      <span className="guitar-panel__tuner-cents">
+        {reading.cents > 0 ? '+' : ''}
+        {reading.cents.toFixed(0)}¢
+      </span>
+    </div>
+  );
+}
+
 export default function GuitarPanel({
   supported,
   connected,
@@ -14,10 +52,18 @@ export default function GuitarPanel({
   onMidChange,
   onTrebleChange,
   onReverbChange,
+  onDelayEnabledChange,
+  onDelayChange,
+  onTunerEnabledChange,
+  tunerReading,
   onGetLatencyInfo,
+  onLoadModel,
+  modelInfo,
 }) {
   const [error, setError] = useState('');
   const [latencyInfo, setLatencyInfo] = useState(null);
+  const [delayEnabled, setDelayEnabledState] = useState(false);
+  const [tunerEnabled, setTunerEnabledState] = useState(false);
 
   function refreshLatency() {
     setLatencyInfo(onGetLatencyInfo());
@@ -33,7 +79,7 @@ export default function GuitarPanel({
     try {
       await onConnect();
     } catch (err) {
-      setError(err.message);
+      setError(formatError(err));
     }
   }
 
@@ -42,7 +88,16 @@ export default function GuitarPanel({
     try {
       await onConnect(e.target.value);
     } catch (err) {
-      setError(err.message);
+      setError(formatError(err));
+    }
+  }
+
+  async function handleLoadModel() {
+    setError('');
+    try {
+      await onLoadModel();
+    } catch (err) {
+      setError(formatError(err));
     }
   }
 
@@ -83,6 +138,20 @@ export default function GuitarPanel({
         )}
         {error && <span className="guitar-panel__error">{error}</span>}
       </div>
+
+      {connected && onLoadModel && (
+        <div className="guitar-panel__row">
+          <button type="button" className="guitar-panel__file-btn" onClick={handleLoadModel}>
+            🎛 NAM-Modell laden (.nam)
+          </button>
+          {modelInfo && (
+            <span className="guitar-panel__model-info">
+              {modelInfo.name}
+              {modelInfo.expectedSampleRate > 0 ? ` · ${modelInfo.expectedSampleRate} Hz` : ''}
+            </span>
+          )}
+        </div>
+      )}
 
       {connected && (
         <div className="guitar-panel__row guitar-panel__gains">
@@ -152,6 +221,50 @@ export default function GuitarPanel({
               onChange={(e) => onOutputGainChange(Number(e.target.value))}
             />
           </label>
+        </div>
+      )}
+
+      {connected && onDelayEnabledChange && (
+        <div className="guitar-panel__row">
+          <label className="guitar-panel__latency-toggle">
+            <input
+              type="checkbox"
+              checked={delayEnabled}
+              onChange={(e) => {
+                setDelayEnabledState(e.target.checked);
+                onDelayEnabledChange(e.target.checked);
+              }}
+            />
+            🔁 Delay
+          </label>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.02}
+            defaultValue={0.3}
+            disabled={!delayEnabled}
+            onChange={(e) => onDelayChange(Number(e.target.value))}
+          />
+        </div>
+      )}
+
+      {connected && onTunerEnabledChange && (
+        <div className="guitar-panel__row guitar-panel__tuner">
+          <label className="guitar-panel__latency-toggle">
+            <input
+              type="checkbox"
+              checked={tunerEnabled}
+              onChange={(e) => {
+                setTunerEnabledState(e.target.checked);
+                onTunerEnabledChange(e.target.checked);
+              }}
+            />
+            🎵 Stimmgerät
+          </label>
+          {tunerEnabled && (
+            <TunerDisplay reading={tunerReading} />
+          )}
         </div>
       )}
 

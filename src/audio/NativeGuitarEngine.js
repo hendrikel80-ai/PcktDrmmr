@@ -1,0 +1,162 @@
+// Drives the real native ASIO + NAM signal chain (src-tauri/src/
+// asio_engine.rs) via Tauri IPC instead of Web Audio nodes. Mirrors
+// GuitarEngine.js's public method surface so GuitarPanel.jsx/
+// useAudioEngine.js don't need to know which one they're driving.
+//
+// Unlike GuitarEngine.js, this never touches the browser's AudioContext/
+// masterOut at all — the native audio path is a separate signal chain
+// that only combines with the browser's drum output at the physical
+// audio hardware (ASIO + WASAPI multi-client), exactly like the existing
+// Reaper+browser split already does today.
+
+export class NativeGuitarEngine {
+  constructor() {
+    this.connected = false;
+    this.modelInfo = null;
+  }
+
+  static isSupported() {
+    return typeof window !== 'undefined' && '__TAURI__' in window;
+  }
+
+  get isConnected() {
+    return this.connected;
+  }
+
+  async listInputDevices() {
+    const names = await window.__TAURI__.core.invoke('list_devices');
+    return names.map((name) => ({ id: name, name }));
+  }
+
+  async connectInput() {
+    // deviceId not used yet — the Rust side always picks the Focusrite
+    // USB ASIO driver (see asio_engine.rs); device selection is Phase 3.
+    await window.__TAURI__.core.invoke('start_passthrough');
+    this.connected = true;
+  }
+
+  disconnectInput() {
+    this.connected = false;
+    window.__TAURI__.core.invoke('stop_passthrough').catch((err) => {
+      console.error('stop_passthrough failed:', err);
+    });
+  }
+
+  // Opens the native file picker (real filesystem path, unlike a browser
+  // <input type="file"> blob — the Rust side reads the file directly) and
+  // loads whatever .nam file the user picks. Returns model metadata, or
+  // null if the user cancelled the dialog.
+  //
+  // Known issue on this machine: tauri-plugin-dialog's blocking_pick_file()
+  // sometimes returns None on the Rust side even after confirming a file
+  // in the picker (Windows/rfd-specific — not something wrong in our own
+  // code, verified by reading the plugin's own command implementation).
+  // loadModelFromPath() below is the fallback for when this happens.
+  async pickAndLoadModel() {
+    const result = await window.__TAURI__.dialog.open({
+      multiple: false,
+      directory: false,
+      filters: [{ name: 'NAM-Modell', extensions: ['nam'] }],
+    });
+    const path = typeof result === 'string' ? result : (result?.path ?? (Array.isArray(result) ? result[0] : null));
+    if (!path) {
+      throw new Error('Kein Dateipfad vom Dialog erhalten — nutze stattdessen das Pfad-Textfeld.');
+    }
+    return this.loadModelFromPath(path);
+  }
+
+  // Loads a .nam file given its full filesystem path directly, bypassing
+  // the native file picker entirely (see pickAndLoadModel's note above).
+  async loadModelFromPath(path) {
+    const info = await window.__TAURI__.core.invoke('load_model', { path });
+    this.modelInfo = { name: path.split(/[\\/]/).pop(), ...info };
+    return this.modelInfo;
+  }
+
+  // All of these are fire-and-forget: the Rust side just stores the value
+  // in an atomic the audio callback reads every block (see
+  // asio_engine.rs's GuitarParams) — no need to await a response before
+  // the UI moves on. Errors (e.g. calling before connectInput()) are
+  // logged, not thrown, so a fast slider drag never surfaces a wall of
+  // rejected-promise noise.
+  setInputGain(value) {
+    window.__TAURI__.core.invoke('set_input_gain', { value }).catch(console.error);
+  }
+
+  setOutputGain(value) {
+    window.__TAURI__.core.invoke('set_output_gain', { value }).catch(console.error);
+  }
+
+  setBass(db) {
+    window.__TAURI__.core.invoke('set_bass', { db }).catch(console.error);
+  }
+
+  setMid(db) {
+    window.__TAURI__.core.invoke('set_mid', { db }).catch(console.error);
+  }
+
+  setTreble(db) {
+    window.__TAURI__.core.invoke('set_treble', { db }).catch(console.error);
+  }
+
+  setReverb(amount) {
+    window.__TAURI__.core.invoke('set_reverb', { amount }).catch(console.error);
+  }
+
+  setDelayEnabled(enabled) {
+    window.__TAURI__.core.invoke('set_delay_enabled', { enabled }).catch(console.error);
+  }
+
+  setDelay(amount) {
+    window.__TAURI__.core.invoke('set_delay', { amount }).catch(console.error);
+  }
+
+  setTunerEnabled(enabled) {
+    window.__TAURI__.core.invoke('set_tuner_enabled', { enabled }).catch(console.error);
+  }
+
+  // Polled from useAudioEngine.js while the tuner is on. Returns null both
+  // on "nothing detected yet" and on any IPC error — a transient failure
+  // here shouldn't spam the console every ~100ms.
+  async getTunerReading() {
+    try {
+      return await window.__TAURI__.core.invoke('get_tuner_reading');
+    } catch (err) {
+      console.error('get_tuner_reading failed:', err);
+      return null;
+    }
+  }
+
+  // Recording tap (see GuitarRecordingTap.js): the native chain renders
+  // straight to hardware output and never touches the browser's Web Audio
+  // graph, so a riff recording needs this side channel to capture guitar
+  // audio at all. setRecordingActive just toggles capture on the Rust
+  // side; drainAudio is polled from useAudioEngine.js while recording.
+  setRecordingActive(active) {
+    window.__TAURI__.core.invoke('set_guitar_recording_active', { active }).catch(console.error);
+  }
+
+  async drainAudio() {
+    try {
+      return await window.__TAURI__.core.invoke('drain_guitar_audio');
+    } catch (err) {
+      console.error('drain_guitar_audio failed:', err);
+      return null;
+    }
+  }
+
+  getLatencyInfo() {
+    // No Web Audio Context to query on this path. The native chain's
+    // real latency was already measured directly in Phase 0/1a (ASIO
+    // buffer size + driver-reported latency) — a live per-block readout
+    // isn't wired up here, this UI element just doesn't apply.
+    return null;
+  }
+
+  async dispose() {
+    if (this.connected) {
+      this.connected = false;
+      await window.__TAURI__.core.invoke('stop_passthrough').catch(() => {});
+    }
+  }
+}

@@ -11,5 +11,11 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+    // Tauri's own build artifacts under src-tauri/target/ change constantly
+    // while `cargo tauri dev` is running; without this Vite's watcher trips
+    // over locked .dll files there (EBUSY) and crashes.
+    watch: {
+      ignored: ['**/src-tauri/**'],
+    },
   },
 });

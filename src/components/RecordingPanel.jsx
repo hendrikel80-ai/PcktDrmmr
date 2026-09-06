@@ -1,23 +1,45 @@
 import { useEffect, useState } from 'react';
 
-const COUNTDOWN_START = 4;
-const COUNTDOWN_STEP_MS = 700;
+// Zählt als musikalisches Einzählen hoch (1, 2, 3, [4]) statt als reiner
+// "Achtung gleich geht's los"-Countdown runter — Anzahl der Zählschläge
+// und ihr Tempo richten sich nach Taktart und BPM des aktuellen Patterns,
+// damit der Spieler exakt auf Schlag 1 der Aufnahme einsteigen kann.
+function beatsPerBarFromTimeSignature(timeSignature) {
+  const numerator = parseInt(String(timeSignature).split('/')[0], 10);
+  return Number.isFinite(numerator) && numerator > 0 ? numerator : 4;
+}
 
-export default function RecordingPanel({ supported, isRecording, recordings, onToggle, onDelete }) {
-  const [countdown, setCountdown] = useState(null); // null = kein Countdown aktiv, sonst 4..0
+export default function RecordingPanel({
+  supported,
+  isRecording,
+  recordings,
+  bpm,
+  timeSignature,
+  onToggle,
+  onCountInClick,
+  onDelete,
+}) {
+  const [count, setCount] = useState(null); // null = kein Einzählen aktiv, sonst 1..beatsPerBar
 
-  // Zählt countdown jede COUNTDOWN_STEP_MS runter; bei < 0 endet der
-  // Countdown und die eigentliche Aufnahme startet erst jetzt.
+  const beatsPerBar = beatsPerBarFromTimeSignature(timeSignature);
+  const beatMs = 60000 / (bpm || 120);
+
+  // Ein Klick pro Zählschlag (Akzent auf "1"), danach beatMs warten und
+  // entweder zur nächsten Zahl weiterzählen oder — nach dem letzten
+  // Schlag — den Countdown beenden und die eigentliche Aufnahme starten.
   useEffect(() => {
-    if (countdown === null) return;
-    if (countdown < 0) {
-      setCountdown(null);
-      onToggle();
-      return;
-    }
-    const timer = setTimeout(() => setCountdown((c) => c - 1), COUNTDOWN_STEP_MS);
+    if (count === null) return undefined;
+    onCountInClick?.(count === 1);
+    const timer = setTimeout(() => {
+      if (count >= beatsPerBar) {
+        setCount(null);
+        onToggle();
+      } else {
+        setCount((c) => c + 1);
+      }
+    }, beatMs);
     return () => clearTimeout(timer);
-  }, [countdown, onToggle]);
+  }, [count, beatsPerBar, beatMs, onToggle, onCountInClick]);
 
   if (!supported) {
     return (
@@ -32,16 +54,16 @@ export default function RecordingPanel({ supported, isRecording, recordings, onT
       onToggle();
       return;
     }
-    if (countdown !== null) return; // Countdown läuft schon
-    setCountdown(COUNTDOWN_START);
+    if (count !== null) return; // Einzählen läuft schon
+    setCount(1);
   }
 
-  const counting = countdown !== null;
+  const counting = count !== null;
 
   return (
     <div className="recording-panel">
       <div className="recording-panel__row">
-        {counting && <span className="recording-panel__countdown">{countdown}</span>}
+        {counting && <span className="recording-panel__countdown">{count}</span>}
         <button
           type="button"
           className={[

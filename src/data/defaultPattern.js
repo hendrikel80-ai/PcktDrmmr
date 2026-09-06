@@ -1,14 +1,15 @@
-// Beispiel-Pattern aus CLAUDE.md: Punk Beat 4/4, 160 BPM.
+// Basic-Rock-Beat, 4/4, 130 BPM: durchgehende Achtel auf der geschlossenen
+// HiHat, Bass Drum auf 1 und 3, Snare auf 2 und 4.
 export const DEFAULT_PATTERN = {
-  bpm: 160,
+  bpm: 130,
   time_signature: '4/4',
   bars: 1,
   style_description:
-    'Klassischer Punk-Beat: treibende durchgehende Achtel auf der HiHat, Snare auf 2 und 4, Kick auf 1 und die "and" von 2',
+    'Basic-Rock-Beat: durchgehende Achtel auf der geschlossenen HiHat, Bass Drum auf 1 und 3, Snare auf 2 und 4',
   pattern: {
-    kick:         [110,0,0,0, 0,0,90,0, 0,0,0,0, 110,0,0,0],
-    snare:        [0,0,0,0, 100,0,0,0, 0,0,0,0, 105,0,0,0],
-    hihat_closed: [80,60,80,60, 80,60,80,60, 80,60,80,60, 80,60,80,60],
+    kick:         [110,0,0,0, 0,0,0,0, 105,0,0,0, 0,0,0,0],
+    snare:        [0,0,0,0, 100,0,0,0, 0,0,0,0, 100,0,0,0],
+    hihat_closed: [85,0,70,0, 85,0,70,0, 85,0,70,0, 85,0,70,0],
   },
   humanize: true,
 };
