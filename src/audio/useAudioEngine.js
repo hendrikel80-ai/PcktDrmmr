@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { HybridDrumEngine } from './HybridDrumEngine';
 import { GuitarEngine } from './GuitarEngine';
 import { NativeGuitarEngine } from './NativeGuitarEngine';
-import { GuitarRecordingTap } from './GuitarRecordingTap';
 import { Recorder } from './Recorder';
+import { mergeRecordings } from './mergeRecording';
 import { Scheduler } from './Scheduler';
 import { DEFAULT_KIT_ID, getKit } from '../data/kits';
 import { isTauriRuntime } from '../utils/platform';
@@ -58,27 +58,20 @@ export function useAudioEngine(pattern) {
     masterOut.connect(recordingDestination);
     const recorder = new Recorder(recordingDestination.stream);
 
-    // Recording-only side channel for natively-rendered guitar audio (see
-    // GuitarRecordingTap.js) — connects ONLY to recordingDestination, not
-    // to masterOut/audioCtx.destination, so the guitar (already monitored
-    // directly through ASIO) isn't also heard a second time through the
-    // browser. No-op in practice unless the native engine actually pushes
-    // samples into it (browser GuitarEngine's audio already reaches
-    // recordingDestination via masterOut, untouched).
-    const guitarRecordingTap = new GuitarRecordingTap(audioCtx, recordingDestination);
-
     const engine = new HybridDrumEngine(audioCtx, getKit(DEFAULT_KIT_ID), masterOut);
     const scheduler = new Scheduler(audioCtx, engine);
     scheduler.onStep = (step) => setCurrentStep(step);
     // Inside the Tauri shell, drive the real native ASIO passthrough
     // instead of the browser Web Audio amp-sim — same method surface on
     // both, see NativeGuitarEngine.js. Its audio never touches audioCtx/
-    // masterOut; it combines with the drums only at the hardware output
-    // (monitoring) and via guitarRecordingTap above (recording).
+    // masterOut at all — it combines with the drums only at the hardware
+    // output for monitoring, and is recorded completely separately (see
+    // toggleRecording: a native WAV file written straight to disk by
+    // Rust, not through this Recorder/masterOut at all).
     const guitar = isTauriRuntime()
       ? new NativeGuitarEngine()
       : new GuitarEngine(audioCtx, masterOut);
-    engineRef.current = { audioCtx, masterOut, engine, scheduler, guitar, recorder, guitarRecordingTap };
+    engineRef.current = { audioCtx, masterOut, engine, scheduler, guitar, recorder };
     engine.loadSamples(DEFAULT_KIT_ID); // no-op falls keine echten Samples vorliegen
 
     // Debug-Zugriff in der Browser-Konsole (nur Dev-Build), z.B. für
@@ -100,7 +93,7 @@ export function useAudioEngine(pattern) {
       engineRef.current?.scheduler.stop();
       engineRef.current?.guitar.dispose();
       engineRef.current?.audioCtx.close();
-      recordingsRef.current.forEach((r) => URL.revokeObjectURL(r.url));
+      recordingsRef.current.forEach((r) => r.url && URL.revokeObjectURL(r.url));
     };
   }, []);
 
@@ -258,26 +251,72 @@ export function useAudioEngine(pattern) {
   }, []);
 
   const toggleRecording = useCallback(async () => {
-    const { audioCtx, scheduler, recorder, guitar, guitarRecordingTap } = ensureEngine();
+    const { audioCtx, scheduler, recorder, guitar } = ensureEngine();
     if (audioCtx.state === 'suspended') {
       await audioCtx.resume();
     }
     if (recorder.isRecording) {
-      // Native-only — stop capture on the Rust side before finishing the
-      // Recorder, so a slightly-lagging drain doesn't hand back guitar
-      // audio after the recording's already been closed.
+      // Native-only — stop capture on the Rust side first; the WAV file
+      // finalizes asynchronously on a background thread there (see
+      // NativeGuitarEngine.getLastRecordingPath), so kick that off before
+      // waiting on the (independent) browser drum recording below.
       guitar.setRecordingActive?.(false);
+      const nativePathPromise = guitar.getLastRecordingPath?.() ?? Promise.resolve(null);
       const blob = await recorder.stop();
       const url = URL.createObjectURL(blob);
       const extension = blob.type.includes('ogg') ? 'ogg' : 'webm';
       const filename = `pocket-drummer-riff-${formatTimestamp()}.${extension}`;
-      setRecordings((prev) => [
-        { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, url, filename, createdAt: Date.now() },
-        ...prev,
-      ]);
+      const newRecordings = [
+        { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, kind: 'browser', url, filename, createdAt: Date.now() },
+      ];
+      const nativePath = await nativePathPromise;
+      if (nativePath) {
+        const nativeFilename = nativePath.split(/[\\/]/).pop();
+        newRecordings.push({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2)}-native`,
+          kind: 'native',
+          path: nativePath,
+          filename: nativeFilename,
+          createdAt: Date.now(),
+        });
+      }
+      setRecordings((prev) => [...newRecordings, ...prev]);
       setIsRecording(false);
+
+      // Merging (decode both + offline render + WAV-encode) can take a
+      // moment on a longer take — don't block the UI on it. The two
+      // individual files above are already in the list either way; this
+      // just adds a third, combined one once ready.
+      if (nativePath) {
+        mergeRecordings(blob, nativePath)
+          .then((mergedBlob) => {
+            const mergedUrl = URL.createObjectURL(mergedBlob);
+            const mergedFilename = `pocket-drummer-riff-${formatTimestamp()}-mix.wav`;
+            setRecordings((prev) => [
+              {
+                id: `${Date.now()}-${Math.random().toString(36).slice(2)}-mix`,
+                kind: 'browser',
+                url: mergedUrl,
+                filename: mergedFilename,
+                createdAt: Date.now(),
+              },
+              ...prev,
+            ]);
+          })
+          .catch((err) => {
+            // Individual files are already saved either way — a failed
+            // merge just means no combined file this time, not lost audio.
+            console.error('mergeRecordings failed:', err);
+          });
+      }
+      // Mirrors the auto-start on record: drums stop together with the
+      // recording instead of continuing to play afterward.
+      if (scheduler.isRunning) {
+        scheduler.stop();
+        setIsPlaying(false);
+        setCurrentStep(-1);
+      }
     } else {
-      guitarRecordingTap.reset();
       guitar.setRecordingActive?.(true);
       recorder.start();
       setIsRecording(true);
@@ -291,25 +330,6 @@ export function useAudioEngine(pattern) {
       }
     }
   }, [ensureEngine]);
-
-  // Native-only (NativeGuitarEngine.drainAudio) — polls captured post-FX
-  // guitar audio while recording and feeds it into guitarRecordingTap, so
-  // the recorded file contains guitar as well as drums (see
-  // GuitarRecordingTap.js for why this can't just be masterOut). No-op
-  // for the browser GuitarEngine, whose audio already reaches
-  // recordingDestination directly via masterOut.
-  useEffect(() => {
-    if (!isRecording || !guitarConnected) return undefined;
-    const { guitar, guitarRecordingTap } = engineRef.current ?? {};
-    if (!guitar?.drainAudio) return undefined;
-    const id = setInterval(async () => {
-      const chunk = await guitar.drainAudio();
-      if (chunk?.samples?.length) {
-        guitarRecordingTap.pushSamples(chunk.samples, chunk.sampleRate);
-      }
-    }, 50);
-    return () => clearInterval(id);
-  }, [isRecording, guitarConnected]);
 
   // Metronome click for RecordingPanel's count-in (see there for timing —
   // one call per counted beat). Goes straight to audioCtx.destination,
@@ -338,10 +358,13 @@ export function useAudioEngine(pattern) {
     [ensureEngine]
   );
 
+  // Only removes the entry from the visible list — a native (kind:
+  // 'native') recording is already saved to disk (Downloads) and stays
+  // there; only the browser blob URL for a webm entry is ever revoked.
   const deleteRecording = useCallback((id) => {
     setRecordings((prev) => {
       const target = prev.find((r) => r.id === id);
-      if (target) URL.revokeObjectURL(target.url);
+      if (target?.url) URL.revokeObjectURL(target.url);
       return prev.filter((r) => r.id !== id);
     });
   }, []);

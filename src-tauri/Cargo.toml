@@ -26,3 +26,4 @@ tauri = { version = "2.11.3", features = [] }
 tauri-plugin-log = "2"
 tauri-plugin-dialog = "2"
 asio-sys = { git = "https://github.com/RustAudio/cpal", rev = "4d61a25ff69a147eb7ba1194a8a783ba4273db71" }
+hound = "3.5"

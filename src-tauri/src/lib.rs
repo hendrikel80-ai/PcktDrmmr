@@ -6,7 +6,8 @@ mod noise_gate;
 mod reverb;
 mod tuner;
 
-use asio_engine::{AsioState, GuitarAudioChunk, ModelInfo};
+use asio_engine::{AsioState, ModelInfo};
+use tauri::Manager;
 use tuner::TunerReading;
 
 #[tauri::command]
@@ -15,8 +16,13 @@ fn list_devices() -> Vec<String> {
 }
 
 #[tauri::command]
-fn start_passthrough(state: tauri::State<AsioState>) -> Result<String, String> {
-    asio_engine::start(&state)
+fn start_passthrough(app: tauri::AppHandle, state: tauri::State<AsioState>) -> Result<String, String> {
+    // Native (guitar+mic) recordings are written straight to disk as WAV
+    // files (see asio_engine.rs's module doc) — Downloads is where the
+    // browser's own drum recordings already land, so both halves of a
+    // take end up in the same, expected place.
+    let recordings_dir = app.path().download_dir().map_err(|e| e.to_string())?;
+    asio_engine::start(&state, recordings_dir)
 }
 
 #[tauri::command]
@@ -85,8 +91,8 @@ fn set_guitar_recording_active(state: tauri::State<AsioState>, active: bool) -> 
 }
 
 #[tauri::command]
-fn drain_guitar_audio(state: tauri::State<AsioState>) -> Result<GuitarAudioChunk, String> {
-    asio_engine::drain_guitar_audio(&state)
+fn get_last_native_recording_path(state: tauri::State<AsioState>) -> Result<Option<String>, String> {
+    asio_engine::get_last_native_recording_path(&state)
 }
 
 #[tauri::command]
@@ -102,6 +108,16 @@ fn set_mic_gain(state: tauri::State<AsioState>, value: f32) -> Result<(), String
 #[tauri::command]
 fn set_mic_reverb(state: tauri::State<AsioState>, amount: f32) -> Result<(), String> {
     asio_engine::set_mic_reverb(&state, amount)
+}
+
+/// Reads a native (guitar+mic) WAV recording's raw bytes, so the frontend
+/// can decode it via Web Audio's decodeAudioData and mix it together with
+/// the browser's own drum recording — see mergeRecording.js. `path` is
+/// always one this same session handed to JS via
+/// get_last_native_recording_path, never externally supplied.
+#[tauri::command]
+fn read_native_recording(path: String) -> Result<Vec<u8>, String> {
+    std::fs::read(&path).map_err(|e| e.to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -135,10 +151,11 @@ pub fn run() {
             set_tuner_enabled,
             get_tuner_reading,
             set_guitar_recording_active,
-            drain_guitar_audio,
+            get_last_native_recording_path,
             set_mic_enabled,
             set_mic_gain,
-            set_mic_reverb
+            set_mic_reverb,
+            read_native_recording
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

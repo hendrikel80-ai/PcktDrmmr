@@ -78,28 +78,48 @@ export default function RecordingPanel({
           {isRecording ? '⏹ Aufnahme stoppen' : '🔴 Aufnahme starten'}
         </button>
         {isRecording && (
-          <span className="recording-panel__live">Nimmt Drums + Gitarre + Mikrofon (gemeinsamer Ausgang) auf …</span>
+          <span className="recording-panel__live">
+            Nimmt Drums (Browser) + Gitarre/Mikrofon (nativ, separate WAV-Datei) auf …
+          </span>
         )}
       </div>
 
       {recordings.length > 0 && (
         <ul className="recording-panel__list">
-          {recordings.map((r) => (
-            <li key={r.id} className="recording-panel__item">
-              <audio controls src={r.url} className="recording-panel__audio" />
-              <a href={r.url} download={r.filename} className="recording-panel__download">
-                💾 {r.filename}
-              </a>
-              <button
-                type="button"
-                className="recording-panel__delete"
-                onClick={() => onDelete(r.id)}
-                title="Aus der Liste entfernen"
-              >
-                🗑
-              </button>
-            </li>
-          ))}
+          {recordings.map((r) =>
+            r.kind === 'native' ? (
+              <li key={r.id} className="recording-panel__item">
+                <span className="recording-panel__native-info" title={r.path}>
+                  🎸🎤 {r.filename}
+                  <br />
+                  bereits gespeichert in Downloads
+                </span>
+                <button
+                  type="button"
+                  className="recording-panel__delete"
+                  onClick={() => onDelete(r.id)}
+                  title="Nur aus dieser Liste entfernen (Datei bleibt in Downloads erhalten)"
+                >
+                  🗑
+                </button>
+              </li>
+            ) : (
+              <li key={r.id} className="recording-panel__item">
+                <audio controls src={r.url} className="recording-panel__audio" />
+                <a href={r.url} download={r.filename} className="recording-panel__download">
+                  💾 {r.filename}
+                </a>
+                <button
+                  type="button"
+                  className="recording-panel__delete"
+                  onClick={() => onDelete(r.id)}
+                  title="Aus der Liste entfernen"
+                >
+                  🗑
+                </button>
+              </li>
+            )
+          )}
         </ul>
       )}
     </div>

@@ -41,21 +41,44 @@ use crate::reverb::Reverb;
 use crate::tuner::{self, TunerReading, TUNER_WINDOW_SIZE};
 use asio_sys::{Asio, CallbackInfo};
 use serde::Serialize;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use std::sync::mpsc::{self, Receiver, SyncSender};
+use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::{SystemTime, UNIX_EPOCH};
 
-// Post-FX guitar audio capture for the recording tap (see Phase 3 in the
-// native-guitar plan): the native chain renders straight to hardware
-// output and never touches the browser's Web Audio graph, so without this
-// a riff recording would silently contain drums only. Chunk size is a
-// tradeoff between IPC call frequency (drain_guitar_audio is polled from
-// JS) and capture latency/pool size; ~46ms @ 44100Hz is a reasonable
-// middle ground. Pool sized generously (4x chunk) so a slow JS poll tick
-// doesn't starve the audio thread of a free buffer to write into.
+// Post-FX guitar+mic audio capture for the recording tap: the native
+// chain renders straight to hardware output and never touches the
+// browser's Web Audio graph, so without this a riff recording would
+// silently contain drums only. Written straight to a WAV file by a
+// dedicated background thread (see the thread spawned in `start()`) —
+// NOT fed into the browser's MediaRecorder/Web Audio graph. An earlier
+// version did exactly that (chunking captured audio into a stream of
+// AudioBufferSourceNodes scheduled into a MediaStreamAudioDestinationNode
+// MediaRecorder was capturing) and caused persistent audible crackling in
+// the finished recordings — MediaRecorder doesn't tolerate a constant
+// stream of freshly-created short buffers being spliced into its source
+// well, no matter how precisely their scheduling was computed. Writing
+// sequentially to a file sidesteps that whole class of problem: samples
+// are appended in arrival order, which is inherently correct since this
+// callback runs strictly sequentially in real time — no timing/scheduling
+// math needed at all on the write side.
+//
+// Chunk size is a tradeoff between channel-message frequency and pool
+// size; ~46ms @ 44100Hz is a reasonable middle ground. Pool sized
+// generously so a slow writer-thread tick (e.g. briefly blocked on file
+// I/O) doesn't starve the audio thread of a free buffer to write into.
 const GUITAR_CHUNK_SIZE: usize = 2048;
-const GUITAR_POOL_SIZE: usize = 4;
+const GUITAR_POOL_SIZE: usize = 8;
+
+/// Sent from the audio callback to the background WAV-writer thread (see
+/// `start()`). `EndTake` finalizes/closes the current file — sent once
+/// per recording_active true->false transition, detected in the callback.
+enum GuitarAudioMsg {
+    Batch(Vec<f32>),
+    EndTake,
+}
 
 unsafe extern "C" {
     #[link_name = "?ASIOControlPanel@@YAJXZ"]
@@ -117,19 +140,7 @@ pub struct AsioSession {
     sample_rate: f64,
     buffer_size: usize,
     latest_tuner_reading: Arc<Mutex<Option<TunerReading>>>,
-    guitar_audio_rx: Mutex<Receiver<Vec<f32>>>,
-    guitar_audio_free_tx: SyncSender<Vec<f32>>,
-}
-
-/// One drained batch of post-FX guitar audio for the recording tap, plus
-/// the sample rate it was captured at (the browser AudioContext and the
-/// ASIO interface aren't guaranteed to share a rate — the JS side needs
-/// this to build a correctly-pitched AudioBuffer).
-#[derive(Serialize)]
-pub struct GuitarAudioChunk {
-    pub samples: Vec<f32>,
-    #[serde(rename = "sampleRate")]
-    pub sample_rate: f64,
+    latest_native_recording_path: Arc<Mutex<Option<PathBuf>>>,
 }
 
 pub struct AsioState(pub Mutex<Option<AsioSession>>);
@@ -157,7 +168,7 @@ pub fn list_device_names() -> Vec<String> {
     Asio::new().driver_names()
 }
 
-pub fn start(state: &AsioState) -> Result<String, String> {
+pub fn start(state: &AsioState, recordings_dir: PathBuf) -> Result<String, String> {
     let mut guard = state.0.lock().map_err(|e| e.to_string())?;
     if guard.is_some() {
         return Ok("already running".to_string());
@@ -238,14 +249,71 @@ pub fn start(state: &AsioState) -> Result<String, String> {
     });
 
     // Recording tap: same pooled-buffer/non-blocking-channel shape as the
-    // tuner above, but the payload goes to drain_guitar_audio (polled from
-    // JS) instead of a background analysis thread — see module doc.
-    let (guitar_audio_tx, guitar_audio_rx) = mpsc::sync_channel::<Vec<f32>>(GUITAR_POOL_SIZE);
+    // tuner above, but the payload goes to a WAV-writing background
+    // thread instead of an analysis one — see module doc.
+    let (guitar_audio_tx, guitar_audio_rx) = mpsc::sync_channel::<GuitarAudioMsg>(GUITAR_POOL_SIZE);
     let (guitar_free_tx, guitar_free_rx) = mpsc::sync_channel::<Vec<f32>>(GUITAR_POOL_SIZE);
     for _ in 0..GUITAR_POOL_SIZE {
         let _ = guitar_free_tx.send(vec![0.0f32; GUITAR_CHUNK_SIZE]);
     }
     let guitar_free_tx_for_callback = guitar_free_tx.clone();
+    let guitar_free_tx_for_writer = guitar_free_tx.clone();
+
+    let latest_native_recording_path: Arc<Mutex<Option<PathBuf>>> = Arc::new(Mutex::new(None));
+    let latest_native_recording_path_for_writer = latest_native_recording_path.clone();
+
+    thread::spawn(move || {
+        let mut writer: Option<hound::WavWriter<std::io::BufWriter<std::fs::File>>> = None;
+        let mut current_path: Option<PathBuf> = None;
+        for msg in guitar_audio_rx.iter() {
+            match msg {
+                GuitarAudioMsg::Batch(samples) => {
+                    if writer.is_none() {
+                        let millis = SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .map(|d| d.as_millis())
+                            .unwrap_or(0);
+                        let path = recordings_dir
+                            .join(format!("pocket-drummer-riff-{millis}-gitarre-mic.wav"));
+                        let spec = hound::WavSpec {
+                            channels: 1,
+                            sample_rate: sample_rate as u32,
+                            bits_per_sample: 32,
+                            sample_format: hound::SampleFormat::Float,
+                        };
+                        match hound::WavWriter::create(&path, spec) {
+                            Ok(w) => {
+                                writer = Some(w);
+                                current_path = Some(path);
+                            }
+                            Err(e) => {
+                                log::error!("failed to create native recording wav file: {e}");
+                            }
+                        }
+                    }
+                    if let Some(w) = writer.as_mut() {
+                        for &s in &samples {
+                            let _ = w.write_sample(s);
+                        }
+                    }
+                    let mut buf = samples;
+                    buf.clear();
+                    buf.resize(GUITAR_CHUNK_SIZE, 0.0);
+                    let _ = guitar_free_tx_for_writer.send(buf);
+                }
+                GuitarAudioMsg::EndTake => {
+                    if let Some(w) = writer.take() {
+                        let _ = w.finalize();
+                    }
+                    if let Some(path) = current_path.take() {
+                        if let Ok(mut latest) = latest_native_recording_path_for_writer.lock() {
+                            *latest = Some(path);
+                        }
+                    }
+                }
+            }
+        }
+    });
 
     // Guitar is on input channel 1 (confirmed repeatedly during Phase 0).
     const GUITAR_IN_CH: usize = 1;
@@ -282,6 +350,10 @@ pub fn start(state: &AsioState) -> Result<String, String> {
     let mut tuner_pos: usize = 0;
     let mut guitar_chunk: Option<Vec<f32>> = None;
     let mut guitar_chunk_pos: usize = 0;
+    // Tracks the recording_active false->true/true->false edge so
+    // GuitarAudioMsg::EndTake fires exactly once per take, telling the
+    // writer thread to finalize/close the WAV file.
+    let mut was_recording_active = false;
 
     driver.add_callback(move |info: &CallbackInfo| {
         let idx = info.buffer_index as usize;
@@ -393,16 +465,27 @@ pub fn start(state: &AsioState) -> Result<String, String> {
         // exact final combined signal once, for both the output loop below
         // and the recording-tap capture — it's what actually reaches the
         // speakers, just not yet hardware-integer-encoded.
+        //
+        // Soft-clip (tanh) instead of a hard clamp: guitar and mic are
+        // each independently gain-staged and can each individually sit
+        // well under full scale, yet their SUM briefly exceed it whenever
+        // both are loud at once (e.g. singing while playing) — a hard
+        // clamp there slices the waveform off abruptly, which is exactly
+        // what reads as an audible "crackle"/click on transients. tanh
+        // compresses peaks smoothly instead (same technique already used
+        // for the browser amp-sim's distortion curve, see
+        // docs/guitar-ampsim.md), only meaningfully coloring the signal
+        // once it's actually pushing toward the ceiling — normal-level
+        // signal passes through close to unchanged (tanh(x)≈x for small x).
         for (o, &m) in scratch_out.iter_mut().zip(scratch_mic.iter()) {
-            *o = (*o * output_gain + m).clamp(-1.0, 1.0);
+            *o = (*o * output_gain + m).tanh();
         }
 
-        // Recording tap: the native chain renders straight to hardware
-        // output and never touches the browser's Web Audio graph, so
-        // without this a riff recording would capture drums only (see
-        // module doc). Same cheap-copy-into-pooled-buffer shape as the
-        // tuner above; drain_guitar_audio (polled from JS while recording)
-        // does the actual draining.
+        // Recording tap: writes straight to a WAV file on a background
+        // thread (see module doc / the thread spawned in start()) — no
+        // scheduling/timing math needed here, just append in arrival
+        // order. Cheap copy into a pooled buffer, same shape as the tuner
+        // above; try_send never blocks the audio thread.
         if recording_active {
             if guitar_chunk.is_none() {
                 guitar_chunk = guitar_free_rx.try_recv().ok();
@@ -414,15 +497,23 @@ pub fn start(state: &AsioState) -> Result<String, String> {
                 guitar_chunk_pos += n;
                 if guitar_chunk_pos >= buf.len() {
                     if let Some(full) = guitar_chunk.take() {
-                        let _ = guitar_audio_tx.try_send(full);
+                        let _ = guitar_audio_tx.try_send(GuitarAudioMsg::Batch(full));
                     }
                     guitar_chunk_pos = 0;
                 }
             }
-        } else if let Some(buf) = guitar_chunk.take() {
-            let _ = guitar_free_tx_for_callback.try_send(buf);
+        } else {
+            if let Some(buf) = guitar_chunk.take() {
+                let _ = guitar_free_tx_for_callback.try_send(buf);
+            }
             guitar_chunk_pos = 0;
+            if was_recording_active {
+                // Just stopped this block: tell the writer thread the
+                // take ended so it finalizes/closes the WAV file.
+                let _ = guitar_audio_tx.try_send(GuitarAudioMsg::EndTake);
+            }
         }
+        was_recording_active = recording_active;
 
         for ch in 0..num_out {
             let out_ptr = output.buffer_infos[ch].buffers[idx] as *mut i32;
@@ -445,8 +536,7 @@ pub fn start(state: &AsioState) -> Result<String, String> {
         sample_rate,
         buffer_size,
         latest_tuner_reading,
-        guitar_audio_rx: Mutex::new(guitar_audio_rx),
-        guitar_audio_free_tx: guitar_free_tx,
+        latest_native_recording_path,
     });
     Ok(msg)
 }
@@ -567,26 +657,22 @@ pub fn set_mic_reverb(state: &AsioState, amount: f32) -> Result<(), String> {
     with_params(state, |p| store_f32(&p.mic_reverb_wet, amount))
 }
 
-/// Polled from JS (roughly every GUITAR_CHUNK_SIZE/sample_rate seconds,
-/// see NativeGuitarEngine.js) while a recording is active. Drains every
-/// chunk currently queued (usually 0 or 1) and recycles each buffer back
-/// into the pool immediately so the audio thread never runs out.
-pub fn drain_guitar_audio(state: &AsioState) -> Result<GuitarAudioChunk, String> {
+/// Path of the most recently finished native (guitar+mic) WAV recording,
+/// if any — polled once by JS right after stopping a take (see
+/// NativeGuitarEngine.js). Finalizing happens asynchronously on the
+/// writer thread (see `start()`), not synchronously with
+/// set_recording_active(false), so this can briefly still report the
+/// *previous* take's path (or None, before the very first take of the
+/// session finishes) right after stopping — callers should poll a couple
+/// of times with a short delay rather than treat a miss as an error.
+pub fn get_last_native_recording_path(state: &AsioState) -> Result<Option<String>, String> {
     let guard = state.0.lock().map_err(|e| e.to_string())?;
     let session = guard
         .as_ref()
         .ok_or_else(|| "not connected — call start_passthrough first".to_string())?;
-
-    let mut samples = Vec::new();
-    let rx = session.guitar_audio_rx.lock().map_err(|e| e.to_string())?;
-    while let Ok(mut chunk) = rx.try_recv() {
-        samples.extend_from_slice(&chunk);
-        chunk.clear();
-        chunk.resize(GUITAR_CHUNK_SIZE, 0.0);
-        let _ = session.guitar_audio_free_tx.send(chunk);
-    }
-    Ok(GuitarAudioChunk {
-        samples,
-        sample_rate: session.sample_rate,
-    })
+    let path_guard = session
+        .latest_native_recording_path
+        .lock()
+        .map_err(|e| e.to_string())?;
+    Ok(path_guard.as_ref().map(|p| p.to_string_lossy().into_owned()))
 }

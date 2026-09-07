@@ -137,22 +137,36 @@ export class NativeGuitarEngine {
     }
   }
 
-  // Recording tap (see GuitarRecordingTap.js): the native chain renders
-  // straight to hardware output and never touches the browser's Web Audio
-  // graph, so a riff recording needs this side channel to capture guitar
-  // audio at all. setRecordingActive just toggles capture on the Rust
-  // side; drainAudio is polled from useAudioEngine.js while recording.
+  // Recording tap: the native chain renders straight to hardware output
+  // and never touches the browser's Web Audio graph, so guitar+mic get
+  // written straight to a WAV file by a background thread on the Rust
+  // side (see asio_engine.rs's module doc) instead of going through the
+  // browser's MediaRecorder — an earlier version fed captured audio into
+  // Web Audio as a stream of scheduled buffers for MediaRecorder to
+  // capture, which caused persistent audible crackling in the finished
+  // recordings that survived several rounds of scheduling-precision
+  // fixes; writing directly to a file sidesteps that whole problem.
   setRecordingActive(active) {
     window.__TAURI__.core.invoke('set_guitar_recording_active', { active }).catch(console.error);
   }
 
-  async drainAudio() {
-    try {
-      return await window.__TAURI__.core.invoke('drain_guitar_audio');
-    } catch (err) {
-      console.error('drain_guitar_audio failed:', err);
-      return null;
+  // Call once after stopping a take. Finalizing the WAV file happens
+  // asynchronously on the writer thread, not synchronously with
+  // setRecordingActive(false), so this retries a few times with a short
+  // delay rather than treating an immediate miss as "no recording
+  // happened" — see asio_engine.rs's get_last_native_recording_path.
+  async getLastRecordingPath() {
+    for (let attempt = 0; attempt < 10; attempt++) {
+      try {
+        const path = await window.__TAURI__.core.invoke('get_last_native_recording_path');
+        if (path) return path;
+      } catch (err) {
+        console.error('get_last_native_recording_path failed:', err);
+        return null;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
+    return null;
   }
 
   // Vocal mic — a second input channel on the same audio interface (see
