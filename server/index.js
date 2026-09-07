@@ -20,12 +20,12 @@ app.post('/api/generate-pattern', async (req, res) => {
   const prompt = typeof req.body?.prompt === 'string' ? req.body.prompt.trim() : '';
 
   if (!prompt) {
-    return res.status(400).json({ error: 'prompt darf nicht leer sein' });
+    return res.status(400).json({ error: 'prompt must not be empty' });
   }
   if (prompt.length > MAX_PROMPT_LENGTH) {
     return res
       .status(400)
-      .json({ error: `prompt darf maximal ${MAX_PROMPT_LENGTH} Zeichen lang sein` });
+      .json({ error: `prompt must be at most ${MAX_PROMPT_LENGTH} characters long` });
   }
 
   try {
@@ -42,12 +42,12 @@ app.post('/api/sound-like', async (req, res) => {
   const query = typeof req.body?.query === 'string' ? req.body.query.trim() : '';
 
   if (!query) {
-    return res.status(400).json({ error: 'query darf nicht leer sein' });
+    return res.status(400).json({ error: 'query must not be empty' });
   }
   if (query.length > MAX_PROMPT_LENGTH) {
     return res
       .status(400)
-      .json({ error: `query darf maximal ${MAX_PROMPT_LENGTH} Zeichen lang sein` });
+      .json({ error: `query must be at most ${MAX_PROMPT_LENGTH} characters long` });
   }
 
   try {
@@ -65,5 +65,5 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Pocket Drummer API läuft auf http://localhost:${PORT}`);
+  console.log(`Pocket Studio API running on http://localhost:${PORT}`);
 });

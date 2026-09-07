@@ -10,6 +10,8 @@ import GuitarPanel from './components/GuitarPanel';
 import MicPanel from './components/MicPanel';
 import RecordingPanel from './components/RecordingPanel';
 import { isTauriRuntime } from './utils/platform';
+import logo from './assets/pocket-studio-logo.png';
+import drumkitIcon from './assets/icon-drumkit.png';
 
 export default function App() {
   const [pattern, setPattern] = useState(DEFAULT_PATTERN);
@@ -64,8 +66,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="app__header">
-        <h1>🥁 Pocket Drummer</h1>
-        <p className="app__subtitle">Übungsbeats zum Mitspielen — Step-Sequencer</p>
+        <img src={logo} alt="Pocket Studio" className="app__logo" />
       </header>
 
       <GuitarPanel
@@ -112,7 +113,10 @@ export default function App() {
       />
 
       <section className="drums-section">
-        <h2 className="drums-section__heading">🥁 Drums</h2>
+        <h2 className="drums-section__heading">
+          <img src={drumkitIcon} alt="" className="guitar-panel__heading-icon" />
+          Drums
+        </h2>
 
         <PromptBar onGenerate={handleLoadPattern} />
 
@@ -132,7 +136,7 @@ export default function App() {
       </section>
 
       <footer className="app__footer">
-        <p>Steps anklicken zum Programmieren (Aus → Ghost → Normal → Akzent).</p>
+        <p>Click steps to program them (Off → Ghost → Normal → Accent).</p>
       </footer>
     </div>
   );

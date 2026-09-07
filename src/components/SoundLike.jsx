@@ -1,15 +1,16 @@
 import { useState } from 'react';
+import ampIcon from '../assets/icon-amp.png';
 
-// "Sound Like": Musiker/Band eingeben, Claude recherchiert (Web-Search-Tool,
-// siehe server/soundLike.js) reales Amp-Equipment und schlägt es hier in
-// einem Fenster vor. Der Download passiert bewusst NICHT automatisiert —
-// jeder Vorschlag verlinkt nur auf eine TONE3000-Suche, die der Nutzer
-// selbst im Browser anklickt (siehe docs/amp-library.md: TONE3000s
-// Nutzungsbedingungen verbieten automatisiertes Herunterladen/Scrapen).
+// "Sound Like": enter a musician/band, Claude researches (web search
+// tool, see server/soundLike.js) real amp gear and suggests it here in a
+// window. Downloading is deliberately NOT automated — every suggestion
+// only links to a TONE3000 search that the user clicks through themselves
+// in the browser (see docs/sound-like.md: TONE3000's terms of service
+// forbid automated downloading/scraping).
 const TONE3000_LICENSE_HINT =
-  'Der Link führt nur zur TONE3000-Suche — heruntergeladen wird dort ganz normal von Hand. ' +
-  'TONE3000-Downloads unterliegen meist der "T3K"-Lizenz (private/kommerzielle Nutzung erlaubt, ' +
-  'keine Weiterverbreitung der Rohdatei).';
+  'The link only leads to the TONE3000 search — downloading there is normal, manual browsing. ' +
+  'TONE3000 downloads are usually under the "T3K" license (private/commercial use of the audio ' +
+  'data allowed, no redistribution of the raw file).';
 
 export default function SoundLike() {
   const [query, setQuery] = useState('');
@@ -39,11 +40,11 @@ export default function SoundLike() {
       try {
         data = await response.json();
       } catch {
-        throw new Error(`Server nicht erreichbar (Status ${response.status}). Läuft das Backend?`);
+        throw new Error(`Server unreachable (status ${response.status}). Is the backend running?`);
       }
 
       if (!response.ok) {
-        throw new Error(data.error || `Server-Fehler (${response.status})`);
+        throw new Error(data.error || `Server error (${response.status})`);
       }
 
       setSuggestions(data.suggestions);
@@ -60,17 +61,18 @@ export default function SoundLike() {
   return (
     <div className="sound-like">
       <form className="sound-like__form" onSubmit={handleSubmit}>
+        <img src={ampIcon} alt="" className="sound-like__icon" />
         <input
           type="text"
           className="sound-like__input"
-          placeholder='🔎 Sound Like: z.B. "James Hetfield", "Eric Clapton", "Metallica"'
+          placeholder='Make me Sound Like: e.g. "James Hetfield", "Eric Clapton", "Metallica"'
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           maxLength={100}
           disabled={status === 'loading'}
         />
         <button type="submit" className="sound-like__submit" disabled={status === 'loading' || !query.trim()}>
-          {status === 'loading' ? 'Recherchiere…' : 'Sound Like'}
+          {status === 'loading' ? 'Researching…' : 'Make me Sound Like'}
         </button>
       </form>
 
@@ -80,12 +82,15 @@ export default function SoundLike() {
         <div className="sound-like-modal__backdrop" onClick={() => setIsOpen(false)}>
           <div className="sound-like-modal" onClick={(e) => e.stopPropagation()}>
             <div className="sound-like-modal__header">
-              <h3>🔎 Sound Like: "{searchedFor}"</h3>
+              <h3>
+                <img src={ampIcon} alt="" className="sound-like-modal__header-icon" />
+                Make me Sound Like: "{searchedFor}"
+              </h3>
               <button
                 type="button"
                 className="sound-like-modal__close"
                 onClick={() => setIsOpen(false)}
-                aria-label="Schließen"
+                aria-label="Close"
               >
                 ✕
               </button>
@@ -93,8 +98,8 @@ export default function SoundLike() {
 
             {!usedWebSearch && (
               <p className="sound-like-modal__no-search">
-                ⚠ Der aktuell eingestellte KI-Provider unterstützt keine Live-Websuche — diese
-                Vorschläge stammen aus allgemeinem Modellwissen, nicht aus aktueller Recherche.
+                ⚠ The currently configured AI provider doesn't support live web search — these
+                suggestions come from general model knowledge, not current research.
               </p>
             )}
 
@@ -112,7 +117,7 @@ export default function SoundLike() {
                     rel="noopener noreferrer"
                     className="sound-like-modal__link"
                   >
-                    Auf TONE3000 suchen ↗
+                    Search on TONE3000 ↗
                   </a>
                 </li>
               ))}

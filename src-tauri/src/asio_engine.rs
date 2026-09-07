@@ -274,7 +274,7 @@ pub fn start(state: &AsioState, recordings_dir: PathBuf) -> Result<String, Strin
                             .map(|d| d.as_millis())
                             .unwrap_or(0);
                         let path = recordings_dir
-                            .join(format!("pocket-drummer-riff-{millis}-gitarre-mic.wav"));
+                            .join(format!("pocket-studio-riff-{millis}-gitarre-mic.wav"));
                         let spec = hound::WavSpec {
                             channels: 1,
                             sample_rate: sample_rate as u32,

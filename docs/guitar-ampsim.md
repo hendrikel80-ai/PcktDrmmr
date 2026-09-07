@@ -72,7 +72,7 @@ tatsächlich umgesetzt: der native Tauri/ASIO-Gitarrenpfad (`src-tauri/`,
 siehe `docs/nam-guitar.md`) läuft mit echter NAM-Inferenz ohne den hier
 beschriebenen Browser-WASM-Kompromiss. Der Browser-Pfad in
 `GuitarEngine.js` bleibt unverändert der klassische Web-Audio-Amp-Sim
-ohne NAM, für den Fall, dass Pocket Drummer mal ohne den Tauri-Shell
+ohne NAM, für den Fall, dass Pocket Studio mal ohne den Tauri-Shell
 (z. B. reiner `npm run dev`) genutzt wird.
 
 Die frühere lokale Amp-Bibliothek (IndexedDB, `AmpLibrary.jsx`) ist

@@ -42,16 +42,16 @@ const KITS_SYNTH_FALLBACK = {
 export const KITS = [
   {
     id: 'pearl-acoustic',
-    name: 'Acoustic (echt)',
+    name: 'Acoustic (real)',
     description:
-      'Echtes akustisches Kit (CC-BY 3.0, "Pearl Master Studio" von enoe, oramics/sampled): kompletter Satz — Kick, Snare, HiHat, Crash, Ride, alle 3 Toms.',
+      'Real acoustic kit (CC-BY 3.0, "Pearl Master Studio" by enoe, oramics/sampled): full set — kick, snare, hihat, crash, ride, all 3 toms.',
     samplePath: 'pearl-acoustic',
     synth: KITS_SYNTH_FALLBACK,
   },
   {
     id: 'standard',
     name: 'Standard',
-    description: 'Ausgewogenes Studio-Kit, neutral gestimmt.',
+    description: 'Balanced studio kit, neutrally tuned.',
     samplePath: 'standard',
     synth: {
       kick: { startFreq: 150, endFreq: 45, decay: 0.3, clickAmount: 0.25, clickFreq: 3500, distortion: 0 },
@@ -65,25 +65,25 @@ export const KITS = [
   },
   {
     id: 'trap-hard',
-    name: 'Hard Trap (echt)',
+    name: 'Hard Trap (real)',
     description:
-      'Echte Samples (CC0, Boochi44/free-drum-samples): verzerrter Kick, harte Snare. Crash/Ride/übrige Toms synthetisch.',
+      'Real samples (CC0, Boochi44/free-drum-samples): distorted kick, hard snare. Crash/ride/remaining toms synthesized.',
     samplePath: 'trap-hard',
     synth: KITS_SYNTH_FALLBACK,
   },
   {
     id: 'trap-bounce',
-    name: 'Bounce (echt)',
+    name: 'Bounce (real)',
     description:
-      'Echte Samples (CC0, Boochi44/free-drum-samples): runder Kick, straffe Snare. Crash/Ride/Tom Mid synthetisch.',
+      'Real samples (CC0, Boochi44/free-drum-samples): round kick, tight snare. Crash/ride/mid tom synthesized.',
     samplePath: 'trap-bounce',
     synth: KITS_SYNTH_FALLBACK,
   },
   {
     id: 'vintage-soul',
-    name: 'Soulful Vintage (echt)',
+    name: 'Soulful Vintage (real)',
     description:
-      'Echte Samples (CC0, Boochi44/free-drum-samples): warme Lo-Fi-Drums. Crash/Ride/Tom Mid synthetisch.',
+      'Real samples (CC0, Boochi44/free-drum-samples): warm lo-fi drums. Crash/ride/mid tom synthesized.',
     samplePath: 'vintage-soul',
     synth: KITS_SYNTH_FALLBACK,
   },

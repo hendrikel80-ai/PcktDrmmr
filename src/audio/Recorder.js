@@ -43,7 +43,7 @@ export class Recorder {
   stop() {
     return new Promise((resolve, reject) => {
       if (!this.mediaRecorder || this.mediaRecorder.state === 'inactive') {
-        reject(new Error('Keine laufende Aufnahme.'));
+        reject(new Error('No recording in progress.'));
         return;
       }
       const recorder = this.mediaRecorder;

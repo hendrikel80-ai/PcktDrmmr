@@ -11,14 +11,14 @@ function extractJson(rawText) {
 
 function validateSuggestions(parsed) {
   if (!parsed || !Array.isArray(parsed.suggestions)) {
-    throw new Error('Antwort enthält kein "suggestions"-Array');
+    throw new Error('Response contains no "suggestions" array');
   }
   if (parsed.suggestions.length === 0) {
-    throw new Error('"suggestions"-Array ist leer');
+    throw new Error('"suggestions" array is empty');
   }
   for (const s of parsed.suggestions) {
     if (typeof s.amp !== 'string' || typeof s.reason !== 'string' || typeof s.searchQuery !== 'string') {
-      throw new Error('Ein Vorschlag hat fehlende/ungültige Felder (amp/reason/searchQuery)');
+      throw new Error('A suggestion has missing/invalid fields (amp/reason/searchQuery)');
     }
   }
 }
@@ -41,7 +41,7 @@ export async function soundLike(query) {
     parsed = JSON.parse(extractJson(rawText));
     validateSuggestions(parsed);
   } catch (err) {
-    throw new UpstreamError(`Ungültige Antwort vom Modell: ${err.message}`, 502);
+    throw new UpstreamError(`Invalid response from the model: ${err.message}`, 502);
   }
 
   return { suggestions: parsed.suggestions, usedWebSearch };

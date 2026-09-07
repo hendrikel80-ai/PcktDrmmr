@@ -1,4 +1,4 @@
-# Drum Computer App – Projektkontext
+# Pocket Studio – Projektkontext
 
 ## Ziel
 

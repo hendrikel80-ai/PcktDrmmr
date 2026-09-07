@@ -23,7 +23,7 @@ export default function KitSelector({ kitId, isLoading, onSelect }) {
           </button>
         ))}
       </div>
-      {isLoading && <span className="kit-selector__status">lädt…</span>}
+      {isLoading && <span className="kit-selector__status">loading…</span>}
     </div>
   );
 }

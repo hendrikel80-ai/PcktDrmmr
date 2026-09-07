@@ -24,15 +24,16 @@ export default function PromptBar({ onGenerate }) {
       try {
         data = await response.json();
       } catch {
-        // Leerer/ungültiger Body, z.B. weil das Backend nicht läuft (Vites
-        // Dev-Proxy liefert dann einen leeren 500er statt einer JSON-Fehlermeldung).
+        // Empty/invalid body, e.g. because the backend isn't running
+        // (Vite's dev proxy then returns an empty 500 instead of a JSON
+        // error message).
         throw new Error(
-          `Server nicht erreichbar (Status ${response.status}). Läuft das Backend? ("npm run dev:full" statt nur "npm run dev")`
+          `Server unreachable (status ${response.status}). Is the backend running? ("npm run dev:full" instead of just "npm run dev")`
         );
       }
 
       if (!response.ok) {
-        throw new Error(data.error || `Server-Fehler (${response.status})`);
+        throw new Error(data.error || `Server error (${response.status})`);
       }
 
       onGenerate(data.pattern);
@@ -48,14 +49,14 @@ export default function PromptBar({ onGenerate }) {
       <input
         type="text"
         className="prompt-bar__input"
-        placeholder='z.B. "Funk Beat 100 BPM" oder "im Stile von Nirvana"'
+        placeholder='e.g. "Funk beat 100 BPM" or "in the style of Nirvana"'
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
         maxLength={300}
         disabled={status === 'loading'}
       />
       <button type="submit" className="prompt-bar__submit" disabled={status === 'loading' || !prompt.trim()}>
-        {status === 'loading' ? 'Generiere…' : '✨ Generieren'}
+        {status === 'loading' ? 'Generating…' : '✨ Generate'}
       </button>
       {status === 'error' && <div className="prompt-bar__error">{errorMessage}</div>}
     </form>

@@ -36,15 +36,15 @@ const NAM_ASSET_BASE_URL = '/nam/';
 function translateGetUserMediaError(err) {
   switch (err.name) {
     case 'NotReadableError':
-      return 'Audio-Gerät konnte nicht gestartet werden (vermutlich durch ein anderes Programm oder einen anderen Browser-Tab belegt). Andere Anwendungen/Tabs schließen, die auf das Interface zugreifen, und erneut versuchen.';
+      return 'Audio device could not be started (likely in use by another program or browser tab). Close other apps/tabs accessing the interface and try again.';
     case 'NotFoundError':
-      return 'Kein passendes Audio-Eingangsgerät gefunden. Ist das Interface angeschlossen und in Windows als Aufnahmegerät sichtbar?';
+      return 'No matching audio input device found. Is the interface connected and visible as a recording device in Windows?';
     case 'NotAllowedError':
-      return 'Mikrofon-/Interface-Zugriff wurde verweigert. Berechtigung im Browser erneut erteilen (Symbol in der Adressleiste) oder in den Website-Einstellungen freigeben.';
+      return 'Microphone/interface access was denied. Grant permission again in the browser (icon in the address bar) or allow it in the site settings.';
     case 'OverconstrainedError':
-      return `Die gewählten Audio-Einstellungen werden vom Gerät nicht unterstützt (${err.constraint ?? 'unbekannte Einschränkung'}).`;
+      return `The chosen audio settings aren't supported by the device (${err.constraint ?? 'unknown constraint'}).`;
     default:
-      return `Audio-Eingang konnte nicht verbunden werden: ${err.message || err.name}`;
+      return `Could not connect audio input: ${err.message || err.name}`;
   }
 }
 

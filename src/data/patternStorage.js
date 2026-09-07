@@ -4,7 +4,24 @@
 
 import { validatePattern } from './validatePattern';
 
-const STORAGE_KEY = 'pocket-drummer:patterns';
+const STORAGE_KEY = 'pocket-studio:patterns';
+const LEGACY_STORAGE_KEY = 'pocket-drummer:patterns';
+
+// Einmalige, stille Migration nach der Umbenennung von Pocket Drummer zu
+// Pocket Studio — sonst wuerden bereits gespeicherte Patterns unter dem
+// alten Storage-Key nach dem Update ploetzlich unsichtbar.
+(function migrateLegacyStorage() {
+  try {
+    if (localStorage.getItem(STORAGE_KEY) !== null) return; // schon migriert oder frisch
+    const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (legacy !== null) {
+      localStorage.setItem(STORAGE_KEY, legacy);
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
+    }
+  } catch {
+    // localStorage nicht verfuegbar - nichts zu migrieren
+  }
+})();
 
 export function listPatterns() {
   return readAll().sort((a, b) => b.savedAt - a.savedAt);

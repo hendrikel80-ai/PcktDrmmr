@@ -5,7 +5,7 @@ export const DEFAULT_PATTERN = {
   time_signature: '4/4',
   bars: 1,
   style_description:
-    'Basic-Rock-Beat: durchgehende Achtel auf der geschlossenen HiHat, Bass Drum auf 1 und 3, Snare auf 2 und 4',
+    'Basic rock beat: straight eighths on the closed hihat, kick on 1 and 3, snare on 2 and 4',
   pattern: {
     kick:         [110,0,0,0, 0,0,0,0, 105,0,0,0, 0,0,0,0],
     snare:        [0,0,0,0, 100,0,0,0, 0,0,0,0, 100,0,0,0],

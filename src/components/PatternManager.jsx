@@ -48,13 +48,13 @@ export default function PatternManager({ pattern, onLoad }) {
         <input
           type="text"
           className="pattern-manager__name-input"
-          placeholder="Pattern-Name…"
+          placeholder="Pattern name…"
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={60}
         />
         <button type="submit" className="pattern-manager__save-btn" disabled={!name.trim()}>
-          💾 Speichern
+          💾 Save
         </button>
       </form>
 
@@ -72,13 +72,13 @@ export default function PatternManager({ pattern, onLoad }) {
             ))}
           </select>
           <button type="button" className="pattern-manager__load-btn" onClick={handleLoad}>
-            📂 Laden
+            📂 Load
           </button>
           <button
             type="button"
             className="pattern-manager__delete-btn"
             onClick={handleDelete}
-            title="Pattern löschen"
+            title="Delete pattern"
           >
             🗑
           </button>

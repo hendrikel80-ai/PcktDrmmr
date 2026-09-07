@@ -75,10 +75,10 @@ export function useAudioEngine(pattern) {
     engine.loadSamples(DEFAULT_KIT_ID); // no-op falls keine echten Samples vorliegen
 
     // Debug-Zugriff in der Browser-Konsole (nur Dev-Build), z.B. für
-    // Latenz-Diagnose: window.__pocketDrummer.audioCtx.baseLatency /
+    // Latenz-Diagnose: window.__pocketStudio.audioCtx.baseLatency /
     // .outputLatency.
     if (import.meta.env.DEV) {
-      window.__pocketDrummer = engineRef.current;
+      window.__pocketStudio = engineRef.current;
     }
 
     return engineRef.current;
@@ -265,7 +265,7 @@ export function useAudioEngine(pattern) {
       const blob = await recorder.stop();
       const url = URL.createObjectURL(blob);
       const extension = blob.type.includes('ogg') ? 'ogg' : 'webm';
-      const filename = `pocket-drummer-riff-${formatTimestamp()}.${extension}`;
+      const filename = `pocket-studio-riff-${formatTimestamp()}.${extension}`;
       const newRecordings = [
         { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, kind: 'browser', url, filename, createdAt: Date.now() },
       ];
@@ -291,7 +291,7 @@ export function useAudioEngine(pattern) {
         mergeRecordings(blob, nativePath)
           .then((mergedBlob) => {
             const mergedUrl = URL.createObjectURL(mergedBlob);
-            const mergedFilename = `pocket-drummer-riff-${formatTimestamp()}-mix.wav`;
+            const mergedFilename = `pocket-studio-riff-${formatTimestamp()}-mix.wav`;
             setRecordings((prev) => [
               {
                 id: `${Date.now()}-${Math.random().toString(36).slice(2)}-mix`,

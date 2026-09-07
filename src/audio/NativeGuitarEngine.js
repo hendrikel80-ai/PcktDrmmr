@@ -61,16 +61,18 @@ export class NativeGuitarEngine {
   // sometimes returns None on the Rust side even after confirming a file
   // in the picker (Windows/rfd-specific — not something wrong in our own
   // code, verified by reading the plugin's own command implementation).
-  // loadModelFromPath() below is the fallback for when this happens.
+  // loadModelFromPath() below still exists for that case, just without a
+  // UI entry point anymore (the manual path field was removed) — if this
+  // starts happening often, that's the thing to bring back.
   async pickAndLoadModel() {
     const result = await window.__TAURI__.dialog.open({
       multiple: false,
       directory: false,
-      filters: [{ name: 'NAM-Modell', extensions: ['nam'] }],
+      filters: [{ name: 'NAM Model', extensions: ['nam'] }],
     });
     const path = typeof result === 'string' ? result : (result?.path ?? (Array.isArray(result) ? result[0] : null));
     if (!path) {
-      throw new Error('Kein Dateipfad vom Dialog erhalten — nutze stattdessen das Pfad-Textfeld.');
+      throw new Error('No file path received from the dialog — please try again.');
     }
     return this.loadModelFromPath(path);
   }

@@ -45,7 +45,7 @@ export class SampleKit {
     try {
       await kit._loadManifest(kitId, manifest);
     } catch (err) {
-      console.warn(`Sample-Kit "${kitId}" konnte nicht vollständig geladen werden:`, err);
+      console.warn(`Sample kit "${kitId}" could not be fully loaded:`, err);
       return null;
     }
     return kit;

@@ -1,17 +1,20 @@
 import { useState } from 'react';
+import micIcon from '../assets/icon-mic.png';
 
 // Vocal mic — the Scarlett's second input channel (see MIC_IN_CH in
 // asio_engine.rs). Native-only, no browser equivalent, and it rides along
-// on the same ASIO session the guitar's "Verbinden" button already starts
-// (there's no separate hardware device to connect to), so this panel just
-// waits for `connected` rather than offering its own connect step.
+// on the same ASIO session the guitar's "Connect Guitar" button already
+// starts (there's no separate hardware device to connect to), so this
+// panel just waits for `connected` rather than offering its own connect
+// step.
 export default function MicPanel({ connected, onMicEnabledChange, onMicGainChange, onMicReverbChange }) {
   const [micEnabled, setMicEnabledState] = useState(false);
 
   if (!connected) {
     return (
       <div className="mic-panel mic-panel--waiting">
-        🎤 Mikrofon: erst über "Gitarre verbinden" die Verbindung zum Interface starten.
+        <img src={micIcon} alt="" className="guitar-panel__heading-icon" />
+        Microphone: connect via "Connect Guitar" first to start the interface connection.
       </div>
     );
   }
@@ -19,6 +22,7 @@ export default function MicPanel({ connected, onMicEnabledChange, onMicGainChang
   return (
     <div className="mic-panel">
       <div className="mic-panel__row">
+        <img src={micIcon} alt="Microphone" className="guitar-panel__heading-icon" />
         <label className="guitar-panel__latency-toggle">
           <input
             type="checkbox"
@@ -28,9 +32,9 @@ export default function MicPanel({ connected, onMicEnabledChange, onMicGainChang
               onMicEnabledChange(e.target.checked);
             }}
           />
-          🎤 Mikrofon
+          Enable
         </label>
-        <label title="Pegel des Mikrofonsignals im Mix (unabhängig von der Gitarren-Lautstärke)">
+        <label title="Level of the mic signal in the mix (independent of the guitar's volume)">
           Gain
           <input
             type="range"
@@ -42,7 +46,7 @@ export default function MicPanel({ connected, onMicEnabledChange, onMicGainChang
             onChange={(e) => onMicGainChange(Number(e.target.value))}
           />
         </label>
-        <label title="Anteil des Raumhalls (Reverb), der zum trockenen Mikrofonsignal zugemischt wird">
+        <label title="Amount of room reverb mixed into the dry mic signal">
           Reverb
           <input
             type="range"

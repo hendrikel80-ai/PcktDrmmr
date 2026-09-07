@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import SoundLike from './SoundLike';
+import guitarIcon from '../assets/icon-guitar.png';
 
 // Tauri command rejections for a Rust `Result<T, String>` reject the JS
 // promise with a plain string, not an Error object — err.message on a
@@ -10,11 +11,11 @@ function formatError(err) {
   return err?.message || String(err);
 }
 
-// Cent-Abweichung -50..+50 auf eine 0-100%-Position umgerechnet, damit
-// der Zeiger bei 0 Cent exakt in der Mitte der Anzeige steht.
+// Cents deviation -50..+50 mapped to a 0-100% position, so the pointer
+// sits exactly in the middle of the display at 0 cents.
 function TunerDisplay({ reading }) {
   if (!reading) {
-    return <span className="guitar-panel__tuner-hint">Spiel eine einzelne Saite an…</span>;
+    return <span className="guitar-panel__tuner-hint">Play a single string…</span>;
   }
   const clampedCents = Math.max(-50, Math.min(50, reading.cents));
   const pointerPercent = 50 + clampedCents;
@@ -105,7 +106,7 @@ export default function GuitarPanel({
   if (!supported) {
     return (
       <div className="guitar-panel guitar-panel--unsupported">
-        Gitarren-Eingang: Browser unterstützt getUserMedia nicht.
+        Guitar input: browser doesn't support getUserMedia.
       </div>
     );
   }
@@ -113,9 +114,10 @@ export default function GuitarPanel({
   return (
     <div className="guitar-panel">
       <div className="guitar-panel__row">
+        <img src={guitarIcon} alt="Guitar" className="guitar-panel__heading-icon" />
         {!connected ? (
           <button type="button" className="guitar-panel__connect" onClick={handleConnect}>
-            🎸 Gitarre verbinden
+            Connect Guitar
           </button>
         ) : (
           <>
@@ -125,7 +127,7 @@ export default function GuitarPanel({
               onChange={handleDeviceChange}
               onFocus={onRefreshDevices}
             >
-              {devices.length === 0 && <option value="">Kein Eingang gefunden</option>}
+              {devices.length === 0 && <option value="">No input found</option>}
               {devices.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name}
@@ -133,7 +135,7 @@ export default function GuitarPanel({
               ))}
             </select>
             <button type="button" className="guitar-panel__disconnect" onClick={onDisconnect}>
-              Trennen
+              Disconnect
             </button>
           </>
         )}
@@ -145,7 +147,7 @@ export default function GuitarPanel({
       {connected && onLoadModel && (
         <div className="guitar-panel__row">
           <button type="button" className="guitar-panel__file-btn" onClick={handleLoadModel}>
-            🎛 NAM-Modell laden (.nam)
+            🎛 Load NAM Model (.nam)
           </button>
           {modelInfo && (
             <span className="guitar-panel__model-info">
@@ -158,7 +160,7 @@ export default function GuitarPanel({
 
       {connected && (
         <div className="guitar-panel__row guitar-panel__gains">
-          <label title="Pegel vor der Verzerrungsstufe — mehr Gain = mehr Sättigung, wie bei einem echten Amp">
+          <label title="Level before the distortion stage — higher gain = more saturation, like turning up the gain on a real amp">
             Gain
             <input
               type="range"
@@ -202,7 +204,7 @@ export default function GuitarPanel({
               onChange={(e) => onTrebleChange(Number(e.target.value))}
             />
           </label>
-          <label title="Anteil des Raumhalls (Reverb), der zum trockenen Signal zugemischt wird">
+          <label title="Amount of room reverb mixed into the dry signal">
             Reverb
             <input
               type="range"
@@ -263,7 +265,7 @@ export default function GuitarPanel({
                 onTunerEnabledChange(e.target.checked);
               }}
             />
-            🎵 Stimmgerät
+            🎵 Tuner
           </label>
           {tunerEnabled && (
             <TunerDisplay reading={tunerReading} />
@@ -271,27 +273,6 @@ export default function GuitarPanel({
         </div>
       )}
 
-      {connected && (
-        <div className="guitar-panel__row guitar-panel__latency">
-          <button type="button" className="guitar-panel__file-btn" onClick={refreshLatency}>
-            🔄 Latenz messen
-          </button>
-          {latencyInfo && (
-            <span className="guitar-panel__latency-value">
-              ~{latencyInfo.totalMs} ms
-              {latencyInfo.totalIsPartial ? '+' : ''} (
-              {latencyInfo.inputMs !== null && <>{latencyInfo.inputMs} Eingabe + </>}
-              {latencyInfo.baseMs} Puffer + {latencyInfo.outputMs} Ausgabe, @{latencyInfo.sampleRate} Hz)
-              {latencyInfo.totalIsPartial && ' — Eingabe-Latenz vom Browser nicht gemeldet, Summe unvollständig'}
-            </span>
-          )}
-          <span className="guitar-panel__latency-hint">
-            Eigener Amp-Simulator aus nativen Web-Audio-Nodes — keine Neural-Net-Inferenz, also keine
-            zusätzliche Rechen-Latenz obendrauf. Verbleibende Latenz ist reine Browser-/Windows-
-            Audio-Pipeline (WASAPI), zum Mitspielen unkritisch.
-          </span>
-        </div>
-      )}
     </div>
   );
 }

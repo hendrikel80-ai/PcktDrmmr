@@ -39,7 +39,7 @@ erneut laufen lassen.
 
 1. Audio-Interface (z. B. Focusrite Scarlett) anschließen, Gitarre an
    Instrumenten-Eingang.
-2. In Pocket Drummer auf **"🎸 Gitarre verbinden"** klicken, Browser fragt
+2. In Pocket Studio auf **"🎸 Gitarre verbinden"** klicken, Browser fragt
    nach Mikrofon-/Interface-Zugriff → erlauben.
 3. Im Dropdown das richtige Interface auswählen (Labels werden erst nach
    erteilter Berechtigung angezeigt).
@@ -196,7 +196,7 @@ Audio-Interfaces, oft hilft ein Wechsel auf einen anderen Controller
   Puffergröße), FX-Kette komplett aus mitgelieferten Reaper-Bordmitteln
   (`JS: Saturation` für die Verzerrung, `ReaEQ` für Bass/Mid/Treble) —
   keine Fremd-Plugins, kein Download-/Versions-Risiko wie bei NAM.
-- **Drums:** weiterhin Pocket Drummer im Browser (Step-Sequencer,
+- **Drums:** weiterhin Pocket Studio im Browser (Step-Sequencer,
   KI-Generierung, Aufnahme) — dafür ist die Browser-Latenz unkritisch,
   da es reine Wiedergabe ohne Eingabe-Feedback-Schleife ist.
 - **Zusammenführen:** beide Programme laufen gleichzeitig, das

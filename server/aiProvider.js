@@ -22,7 +22,7 @@ class UpstreamError extends Error {
 async function callAnthropic({ system, userMessage, maxTokens, webSearch }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    throw new UpstreamError('ANTHROPIC_API_KEY ist nicht gesetzt (siehe .env.example)', 500);
+    throw new UpstreamError('ANTHROPIC_API_KEY is not set (see .env.example)', 500);
   }
   const model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
 
@@ -49,7 +49,7 @@ async function callAnthropic({ system, userMessage, maxTokens, webSearch }) {
 
   if (!response.ok) {
     const bodyText = await response.text().catch(() => '');
-    throw new UpstreamError(`Anthropic API antwortete mit ${response.status}: ${bodyText.slice(0, 300)}`, 502);
+    throw new UpstreamError(`Anthropic API responded with ${response.status}: ${bodyText.slice(0, 300)}`, 502);
   }
 
   const data = await response.json();
@@ -61,7 +61,7 @@ async function callAnthropic({ system, userMessage, maxTokens, webSearch }) {
     .map((block) => block.text)
     .join('\n');
   if (!text) {
-    throw new UpstreamError('Anthropic API lieferte keinen Text-Content', 502);
+    throw new UpstreamError('Anthropic API returned no text content', 502);
   }
   return { text, usedWebSearch: Boolean(webSearch) };
 }
@@ -69,7 +69,7 @@ async function callAnthropic({ system, userMessage, maxTokens, webSearch }) {
 async function callDeepSeek({ system, userMessage, maxTokens }) {
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) {
-    throw new UpstreamError('DEEPSEEK_API_KEY ist nicht gesetzt (siehe .env.example)', 500);
+    throw new UpstreamError('DEEPSEEK_API_KEY is not set (see .env.example)', 500);
   }
   const model = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
 
@@ -95,13 +95,13 @@ async function callDeepSeek({ system, userMessage, maxTokens }) {
 
   if (!response.ok) {
     const bodyText = await response.text().catch(() => '');
-    throw new UpstreamError(`DeepSeek API antwortete mit ${response.status}: ${bodyText.slice(0, 300)}`, 502);
+    throw new UpstreamError(`DeepSeek API responded with ${response.status}: ${bodyText.slice(0, 300)}`, 502);
   }
 
   const data = await response.json();
   const text = data.choices?.[0]?.message?.content;
   if (typeof text !== 'string' || !text) {
-    throw new UpstreamError('DeepSeek API lieferte keinen Text-Content', 502);
+    throw new UpstreamError('DeepSeek API returned no text content', 502);
   }
   // Kein serverseitiges Web-Search-Tool verfügbar (siehe Moduldoc) — auch
   // bei angefragter Websuche war es keine.
@@ -122,7 +122,7 @@ export async function callChatModel({ system, userMessage, maxTokens, webSearch 
   const impl = PROVIDERS[providerName];
   if (!impl) {
     throw new UpstreamError(
-      `Unbekannter AI_PROVIDER "${providerName}" — unterstützt: ${Object.keys(PROVIDERS).join(', ')}`,
+      `Unknown AI_PROVIDER "${providerName}" — supported: ${Object.keys(PROVIDERS).join(', ')}`,
       500
     );
   }

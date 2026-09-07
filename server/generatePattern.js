@@ -41,8 +41,8 @@ export async function generatePattern(userPrompt) {
       try {
         parsed = JSON.parse(repairMissingArrayCommas(jsonText));
       } catch {
-        lastError = new Error(`Ungültiges JSON vom Modell: ${err.message}`);
-        message = `${userPrompt}\n\nDeine letzte Antwort war kein gültiges JSON (Fehler: ${err.message}). Antworte erneut ausschließlich mit gültigem JSON gemäß Schema.`;
+        lastError = new Error(`Invalid JSON from the model: ${err.message}`);
+        message = `${userPrompt}\n\nYour last response was not valid JSON (error: ${err.message}). Respond again with valid JSON only, matching the schema.`;
         continue;
       }
     }
@@ -52,12 +52,12 @@ export async function generatePattern(userPrompt) {
       return parsed;
     } catch (err) {
       lastError = err;
-      message = `${userPrompt}\n\nDeine letzte Antwort war ungültig (${err.message}). Antworte erneut, korrigiere das Problem und halte dich exakt an das Schema.`;
+      message = `${userPrompt}\n\nYour last response was invalid (${err.message}). Respond again, fix the issue, and follow the schema exactly.`;
     }
   }
 
   throw new UpstreamError(
-    `Konnte nach ${MAX_ATTEMPTS} Versuchen kein gültiges Pattern erzeugen: ${lastError?.message}`,
+    `Could not produce a valid pattern after ${MAX_ATTEMPTS} attempts: ${lastError?.message}`,
     502
   );
 }

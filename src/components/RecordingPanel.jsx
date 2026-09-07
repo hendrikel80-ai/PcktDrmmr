@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
+import onAirIcon from '../assets/icon-onair.png';
 
-// Zählt als musikalisches Einzählen hoch (1, 2, 3, [4]) statt als reiner
-// "Achtung gleich geht's los"-Countdown runter — Anzahl der Zählschläge
-// und ihr Tempo richten sich nach Taktart und BPM des aktuellen Patterns,
-// damit der Spieler exakt auf Schlag 1 der Aufnahme einsteigen kann.
+// Counts up musically (1, 2, 3, [4]) as a count-in instead of a plain
+// "get ready" countdown — the number of counted beats and their tempo
+// follow the current pattern's time signature and BPM, so the player can
+// come in exactly on beat 1 of the recording.
 function beatsPerBarFromTimeSignature(timeSignature) {
   const numerator = parseInt(String(timeSignature).split('/')[0], 10);
   return Number.isFinite(numerator) && numerator > 0 ? numerator : 4;
@@ -19,14 +20,14 @@ export default function RecordingPanel({
   onCountInClick,
   onDelete,
 }) {
-  const [count, setCount] = useState(null); // null = kein Einzählen aktiv, sonst 1..beatsPerBar
+  const [count, setCount] = useState(null); // null = no count-in active, otherwise 1..beatsPerBar
 
   const beatsPerBar = beatsPerBarFromTimeSignature(timeSignature);
   const beatMs = 60000 / (bpm || 120);
 
-  // Ein Klick pro Zählschlag (Akzent auf "1"), danach beatMs warten und
-  // entweder zur nächsten Zahl weiterzählen oder — nach dem letzten
-  // Schlag — den Countdown beenden und die eigentliche Aufnahme starten.
+  // One click per counted beat (accent on "1"), then wait beatMs and
+  // either advance to the next number or — after the last beat — end the
+  // count-in and start the actual recording.
   useEffect(() => {
     if (count === null) return undefined;
     onCountInClick?.(count === 1);
@@ -44,7 +45,7 @@ export default function RecordingPanel({
   if (!supported) {
     return (
       <div className="recording-panel recording-panel--unsupported">
-        Aufnahme: Browser unterstützt MediaRecorder nicht.
+        Recording: browser doesn't support MediaRecorder.
       </div>
     );
   }
@@ -54,7 +55,7 @@ export default function RecordingPanel({
       onToggle();
       return;
     }
-    if (count !== null) return; // Einzählen läuft schon
+    if (count !== null) return; // count-in already running
     setCount(1);
   }
 
@@ -63,7 +64,7 @@ export default function RecordingPanel({
   return (
     <div className="recording-panel">
       <div className="recording-panel__row">
-        {counting && <span className="recording-panel__countdown">{count}</span>}
+        <img src={onAirIcon} alt="Recording" className="guitar-panel__heading-icon" />
         <button
           type="button"
           className={[
@@ -75,11 +76,12 @@ export default function RecordingPanel({
           onClick={handleToggleClick}
           disabled={counting}
         >
-          {isRecording ? '⏹ Aufnahme stoppen' : '🔴 Aufnahme starten'}
+          {isRecording ? '⏹ Stop Recording' : 'Start Recording'}
         </button>
+        {counting && <span className="recording-panel__countdown">{count}</span>}
         {isRecording && (
           <span className="recording-panel__live">
-            Nimmt Drums (Browser) + Gitarre/Mikrofon (nativ, separate WAV-Datei) auf …
+            Recording drums (browser) + guitar/mic (native, separate WAV file) …
           </span>
         )}
       </div>
@@ -92,13 +94,13 @@ export default function RecordingPanel({
                 <span className="recording-panel__native-info" title={r.path}>
                   🎸🎤 {r.filename}
                   <br />
-                  bereits gespeichert in Downloads
+                  already saved to Downloads
                 </span>
                 <button
                   type="button"
                   className="recording-panel__delete"
                   onClick={() => onDelete(r.id)}
-                  title="Nur aus dieser Liste entfernen (Datei bleibt in Downloads erhalten)"
+                  title="Only removes this from the list (the file stays in Downloads)"
                 >
                   🗑
                 </button>
@@ -113,7 +115,7 @@ export default function RecordingPanel({
                   type="button"
                   className="recording-panel__delete"
                   onClick={() => onDelete(r.id)}
-                  title="Aus der Liste entfernen"
+                  title="Remove from the list"
                 >
                   🗑
                 </button>

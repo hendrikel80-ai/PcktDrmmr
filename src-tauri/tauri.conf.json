@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "pocket-drummer-native",
+  "productName": "pocket-studio-native",
   "version": "0.1.0",
   "identifier": "com.hendrikel80.pocketdrummer.native",
   "build": {
@@ -11,7 +11,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "Pocket Drummer",
+        "title": "Pocket Studio",
         "width": 800,
         "height": 600,
         "resizable": true,
