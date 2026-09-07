@@ -18,6 +18,7 @@ export default function SoundLike() {
   const [errorMessage, setErrorMessage] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [usedWebSearch, setUsedWebSearch] = useState(true);
+  const [fromCache, setFromCache] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [searchedFor, setSearchedFor] = useState('');
 
@@ -49,6 +50,7 @@ export default function SoundLike() {
 
       setSuggestions(data.suggestions);
       setUsedWebSearch(Boolean(data.usedWebSearch));
+      setFromCache(Boolean(data.fromCache));
       setSearchedFor(trimmed);
       setIsOpen(true);
       setStatus('idle');
@@ -95,6 +97,12 @@ export default function SoundLike() {
                 ✕
               </button>
             </div>
+
+            {fromCache && (
+              <p className="sound-like-modal__cache-hint">
+                📦 Served from the local cache — no AI tokens used for this search.
+              </p>
+            )}
 
             {!usedWebSearch && (
               <p className="sound-like-modal__no-search">

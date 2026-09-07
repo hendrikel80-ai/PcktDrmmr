@@ -1,7 +1,9 @@
 import { SOUND_LIKE_SYSTEM_PROMPT } from './soundLikePrompt.js';
 import { callChatModel, UpstreamError } from './aiProvider.js';
+import { getCached, setCached } from './cache.js';
 
 const MAX_TOKENS = 1200; // Websuche braucht mehr Spielraum als reines Modellwissen
+const CACHE_FILE = 'soundLikeCache.json';
 
 function extractJson(rawText) {
   const trimmed = rawText.trim();
@@ -29,6 +31,11 @@ function validateSuggestions(parsed) {
 // sollte das anzeigen, statt eine Recherche vorzutäuschen, die nicht
 // stattgefunden hat.
 export async function soundLike(query) {
+  const cached = getCached(CACHE_FILE, query);
+  if (cached) {
+    return { ...cached, fromCache: true };
+  }
+
   const { text: rawText, usedWebSearch } = await callChatModel({
     system: SOUND_LIKE_SYSTEM_PROMPT,
     userMessage: query,
@@ -44,5 +51,7 @@ export async function soundLike(query) {
     throw new UpstreamError(`Invalid response from the model: ${err.message}`, 502);
   }
 
-  return { suggestions: parsed.suggestions, usedWebSearch };
+  const result = { suggestions: parsed.suggestions, usedWebSearch };
+  setCached(CACHE_FILE, query, result);
+  return { ...result, fromCache: false };
 }

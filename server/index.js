@@ -29,8 +29,8 @@ app.post('/api/generate-pattern', async (req, res) => {
   }
 
   try {
-    const pattern = await generatePattern(prompt);
-    res.json({ pattern });
+    const { pattern, fromCache } = await generatePattern(prompt);
+    res.json({ pattern, fromCache });
   } catch (err) {
     const status = err instanceof UpstreamError ? err.status : 500;
     console.error('generate-pattern failed:', err.message);
@@ -51,8 +51,8 @@ app.post('/api/sound-like', async (req, res) => {
   }
 
   try {
-    const { suggestions, usedWebSearch } = await soundLike(query);
-    res.json({ suggestions, usedWebSearch });
+    const { suggestions, usedWebSearch, fromCache } = await soundLike(query);
+    res.json({ suggestions, usedWebSearch, fromCache });
   } catch (err) {
     const status = err instanceof UpstreamError ? err.status : 500;
     console.error('sound-like failed:', err.message);

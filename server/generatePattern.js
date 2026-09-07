@@ -1,9 +1,11 @@
 import { validatePattern } from '../src/data/validatePattern.js';
 import { SYSTEM_PROMPT } from './systemPrompt.js';
 import { callChatModel, UpstreamError } from './aiProvider.js';
+import { getCached, setCached } from './cache.js';
 
 const MAX_TOKENS = 1500;
 const MAX_ATTEMPTS = 2; // 1 Versuch + 1 Retry bei ungültigem JSON
+const CACHE_FILE = 'patternCache.json';
 
 // Entfernt versehentliche Markdown-Codefences, falls das Modell sie trotz
 // Anweisung mal ausgibt.
@@ -23,6 +25,11 @@ function repairMissingArrayCommas(jsonText) {
 }
 
 export async function generatePattern(userPrompt) {
+  const cached = getCached(CACHE_FILE, userPrompt);
+  if (cached) {
+    return { pattern: cached, fromCache: true };
+  }
+
   let lastError;
   let message = userPrompt;
 
@@ -49,7 +56,8 @@ export async function generatePattern(userPrompt) {
 
     try {
       validatePattern(parsed);
-      return parsed;
+      setCached(CACHE_FILE, userPrompt, parsed);
+      return { pattern: parsed, fromCache: false };
     } catch (err) {
       lastError = err;
       message = `${userPrompt}\n\nYour last response was invalid (${err.message}). Respond again, fix the issue, and follow the schema exactly.`;

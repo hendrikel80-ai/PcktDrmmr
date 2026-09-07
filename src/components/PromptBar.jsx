@@ -4,6 +4,7 @@ export default function PromptBar({ onGenerate }) {
   const [prompt, setPrompt] = useState('');
   const [status, setStatus] = useState('idle'); // idle | loading | error
   const [errorMessage, setErrorMessage] = useState('');
+  const [lastFromCache, setLastFromCache] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -37,6 +38,7 @@ export default function PromptBar({ onGenerate }) {
       }
 
       onGenerate(data.pattern);
+      setLastFromCache(Boolean(data.fromCache));
       setStatus('idle');
     } catch (err) {
       setStatus('error');
@@ -59,6 +61,11 @@ export default function PromptBar({ onGenerate }) {
         {status === 'loading' ? 'Generating…' : '✨ Generate'}
       </button>
       {status === 'error' && <div className="prompt-bar__error">{errorMessage}</div>}
+      {status === 'idle' && lastFromCache && (
+        <span className="prompt-bar__cache-hint" title="Served from the local cache — no AI tokens used">
+          📦 from cache
+        </span>
+      )}
     </form>
   );
 }
