@@ -69,48 +69,6 @@ body {
   color: var(--text-dim);
 }
 
-.prompt-bar {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-}
-
-.prompt-bar__input {
-  flex: 1;
-  min-width: 220px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px 14px;
-  color: var(--text);
-  font-size: 0.95rem;
-}
-
-.prompt-bar__input:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: -1px;
-}
-
-.prompt-bar__submit {
-  background: var(--panel-alt);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0 20px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.prompt-bar__submit:hover:not(:disabled) {
-  border-color: var(--accent);
-}
-
-.prompt-bar__submit:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
 .prompt-bar__error {
   flex-basis: 100%;
   color: var(--accent);
@@ -122,6 +80,154 @@ body {
   color: var(--text-dim);
   font-size: 0.8rem;
   font-style: italic;
+}
+
+.prompt-bar__reference-hint {
+  flex-basis: 100%;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+.instrument-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  align-items: start;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.instrument-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px 16px;
+  font-size: 0.85rem;
+}
+
+.instrument-card__header {
+  position: relative;
+  width: 64px;
+  margin: 0 auto;
+}
+
+.instrument-card__icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--panel-alt);
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.instrument-card__status {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--border);
+  border: 2px solid var(--panel);
+}
+
+.instrument-card__status--connected {
+  background: var(--accent-2);
+  box-shadow: 0 0 6px var(--accent-2);
+}
+
+.instrument-card__title {
+  margin: 4px 0 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.instrument-card__subtitle {
+  margin: 0 0 4px;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.instrument-card__hint {
+  margin: 0;
+  color: var(--text-dim);
+  font-style: italic;
+  font-size: 0.8rem;
+}
+
+.generation-box {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.generation-box__form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.generation-box__heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.generation-box__heading-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.generation-box__input {
+  width: 100%;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.generation-box__input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.generation-box__button {
+  width: 100%;
+  background: var(--panel-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.generation-box__button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.generation-box__button:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .kit-selector {
@@ -175,27 +281,6 @@ body {
   font-style: italic;
 }
 
-.guitar-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 12px 16px;
-  margin-bottom: 20px;
-  font-size: 0.85rem;
-}
-
-.guitar-panel__heading {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  font-size: 1.1rem;
-  color: var(--text-dim);
-}
-
 .guitar-panel__heading-icon {
   width: 56px;
   height: 56px;
@@ -203,17 +288,13 @@ body {
   flex-shrink: 0;
 }
 
-.guitar-panel--unsupported {
-  color: var(--text-dim);
-  font-style: italic;
-  padding: 12px 16px;
-}
-
 .guitar-panel__row {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   flex-wrap: wrap;
+  width: 100%;
 }
 
 .guitar-panel__connect,
@@ -241,7 +322,7 @@ body {
   border-radius: 8px;
   padding: 6px 10px;
   font-size: 0.85rem;
-  max-width: 220px;
+  max-width: 100%;
 }
 
 .guitar-panel__file-input {
@@ -252,40 +333,25 @@ body {
   color: var(--text-dim);
 }
 
-.mic-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 12px 16px;
-  margin-bottom: 20px;
-  font-size: 0.85rem;
-}
-
-.mic-panel--waiting {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 10px;
-  color: var(--text-dim);
-  font-style: italic;
-  text-align: left;
-}
-
 .mic-panel__row {
   display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  width: 100%;
 }
 
 .mic-panel__row label:not(.guitar-panel__latency-toggle) {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  gap: 10px;
   color: var(--text-dim);
+}
+
+.mic-panel__row label:not(.guitar-panel__latency-toggle) input[type='range'] {
+  flex: 1;
+  max-width: 140px;
 }
 
 .recording-panel {
@@ -329,13 +395,15 @@ body {
 }
 
 .recording-panel__toggle {
-  background: var(--panel-alt);
+  background: transparent;
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 16px;
+  border-radius: 999px;
+  padding: 10px 24px;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .recording-panel__toggle:disabled {
@@ -351,7 +419,7 @@ body {
   background: var(--panel-alt);
   color: var(--accent);
   border-color: var(--accent);
-  font-weight: 600;
+  box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 55%, transparent);
 }
 
 .recording-panel__live {
@@ -427,23 +495,24 @@ body {
 }
 
 .guitar-panel__gains {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
   color: var(--text-dim);
 }
 
 .guitar-panel__gains label {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.guitar-panel__latency-hint {
-  font-size: 0.75rem;
-  font-style: italic;
-  flex-basis: 100%;
-}
-
-.guitar-panel__latency {
-  color: var(--text-dim);
+.guitar-panel__gains label input[type='range'] {
+  flex: 1;
+  max-width: 140px;
 }
 
 .guitar-panel__tuner-hint {
@@ -517,12 +586,6 @@ body {
   cursor: pointer;
 }
 
-.guitar-panel__latency-value {
-  color: var(--accent-2);
-  font-family: 'Courier New', monospace;
-  font-size: 0.8rem;
-}
-
 .transport {
   display: flex;
   align-items: center;
@@ -533,12 +596,6 @@ body {
   border-radius: 12px;
   padding: 16px 20px;
   margin-bottom: 20px;
-}
-
-.transport__play-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
 }
 
 .transport__play {
@@ -697,50 +754,6 @@ body {
 
 .step-cell:active {
   transform: scale(0.95);
-}
-
-.sound-like__form {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.sound-like__icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
-  flex-shrink: 0;
-}
-
-.sound-like__input {
-  flex: 1;
-  min-width: 220px;
-  background: var(--panel-alt);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px 12px;
-  color: var(--text);
-  font-size: 0.85rem;
-}
-
-.sound-like__submit {
-  background: var(--panel-alt);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0 18px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.sound-like__submit:hover:not(:disabled) {
-  border-color: var(--accent);
-}
-
-.sound-like__submit:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 
 .sound-like__error {

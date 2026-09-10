@@ -11,6 +11,7 @@ import { UpstreamError } from './aiProvider.js';
 // gesetzt) würde sonst versehentlich auch dieses Backend umleiten.
 const PORT = process.env.API_PORT || 3001;
 const MAX_PROMPT_LENGTH = 300;
+const MAX_REFERENCE_PATTERNS = 5;
 
 const app = express();
 app.use(cors());
@@ -28,8 +29,12 @@ app.post('/api/generate-pattern', async (req, res) => {
       .json({ error: `prompt must be at most ${MAX_PROMPT_LENGTH} characters long` });
   }
 
+  const referencePatterns = Array.isArray(req.body?.referencePatterns)
+    ? req.body.referencePatterns.slice(0, MAX_REFERENCE_PATTERNS)
+    : [];
+
   try {
-    const { pattern, fromCache } = await generatePattern(prompt);
+    const { pattern, fromCache } = await generatePattern(prompt, referencePatterns);
     res.json({ pattern, fromCache });
   } catch (err) {
     const status = err instanceof UpstreamError ? err.status : 500;

@@ -61,20 +61,23 @@ export default function SoundLike() {
   }
 
   return (
-    <div className="sound-like">
-      <form className="sound-like__form" onSubmit={handleSubmit}>
-        <img src={ampIcon} alt="" className="sound-like__icon" />
+    <div className="generation-box">
+      <form className="generation-box__form" onSubmit={handleSubmit}>
+        <div className="generation-box__heading">
+          <img src={ampIcon} alt="" className="generation-box__heading-icon" />
+          <span>Make me Sound Like</span>
+        </div>
         <input
           type="text"
-          className="sound-like__input"
-          placeholder='Make me Sound Like: e.g. "James Hetfield", "Eric Clapton", "Metallica"'
+          className="generation-box__input"
+          placeholder='e.g. "James Hetfield", "Eric Clapton", "Metallica"'
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           maxLength={100}
           disabled={status === 'loading'}
         />
-        <button type="submit" className="sound-like__submit" disabled={status === 'loading' || !query.trim()}>
-          {status === 'loading' ? 'Researching…' : 'Make me Sound Like'}
+        <button type="submit" className="generation-box__button" disabled={status === 'loading' || !query.trim()}>
+          {status === 'loading' ? 'Researching…' : '✨ Make me Sound Like'}
         </button>
       </form>
 

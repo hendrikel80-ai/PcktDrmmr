@@ -31,7 +31,51 @@ const FEW_SHOT_EXAMPLES = `Example 1 — request: "Punk beat 4/4 160 BPM"
   "humanize": true
 }
 
-Example 2 — request: "Make me a drum beat in the style of Self Esteem by The Offspring"
+Example 2 — request: "Funky groove 100 BPM"
+{
+  "bpm": 100,
+  "time_signature": "4/4",
+  "bars": 1,
+  "style_description": "Syncopated funk groove: 16th-note hihat with accented and ghosted velocities, off-beat kick syncopation, ghost-note snare fills between the backbeat hits",
+  "pattern": {
+    "kick": [110,0,0,40,0,0,90,0,0,40,0,0,100,0,40,0],
+    "snare": [0,0,0,0,105,0,0,20,0,20,0,0,105,0,0,30],
+    "hihat_closed": [90,50,60,50,80,50,70,50,90,50,60,50,80,50,70,60]
+  },
+  "humanize": true
+}
+
+Example 3 — request: "Four-on-the-floor disco beat 122 BPM"
+{
+  "bpm": 122,
+  "time_signature": "4/4",
+  "bars": 1,
+  "style_description": "Classic disco/house four-on-the-floor: kick on every quarter note, open hihat on the off-beat 8ths, claps on 2 and 4",
+  "pattern": {
+    "kick": [115,0,0,0,115,0,0,0,115,0,0,0,115,0,0,0],
+    "snare": [0,0,0,0,100,0,0,0,0,0,0,0,100,0,0,0],
+    "hihat_closed": [0,0,60,0,0,0,60,0,0,0,60,0,0,0,60,0],
+    "hihat_open": [0,70,0,70,0,70,0,70,0,70,0,70,0,70,0,70]
+  },
+  "humanize": true
+}
+
+Example 4 — request: "Boom-bap hip-hop beat 90 BPM"
+{
+  "bpm": 90,
+  "time_signature": "4/4",
+  "bars": 1,
+  "style_description": "Laid-back boom-bap hip-hop: sparse swung kick pattern, heavy snare on 2 and 4, sparse hihat with open-hat accents for a loose, sample-based feel",
+  "pattern": {
+    "kick": [115,0,0,0,0,0,0,40,0,0,90,0,0,0,0,0],
+    "snare": [0,0,0,0,110,0,0,0,0,0,0,0,110,0,20,0],
+    "hihat_closed": [70,0,70,0,0,0,70,0,70,0,70,0,0,0,70,0],
+    "hihat_open": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,60]
+  },
+  "humanize": true
+}
+
+Example 5 — request: "Make me a drum beat in the style of Self Esteem by The Offspring"
 {
   "bpm": 155,
   "time_signature": "4/4",
@@ -45,6 +89,29 @@ Example 2 — request: "Make me a drum beat in the style of Self Esteem by The O
   },
   "humanize": true
 }`;
+
+// Formats the user's own saved patterns (marked "use as AI reference" in
+// PatternManager) into the same few-shot text-block style as
+// FEW_SHOT_EXAMPLES above, so they slot into the prompt the same way —
+// except the "request" label is the pattern's own style_description
+// (already part of the schema) since there's no original text prompt for
+// a hand-built or previously generated pattern.
+export function buildReferenceExamplesBlock(referencePatterns) {
+  if (!referencePatterns || referencePatterns.length === 0) return '';
+
+  const examples = referencePatterns
+    .map(({ name, pattern }, i) => {
+      const label = pattern.style_description || name;
+      return `Reference ${i + 1} — "${label}"\n${JSON.stringify(pattern)}`;
+    })
+    .join('\n\n');
+
+  return `
+
+The user has marked the following ${referencePatterns.length} of their own patterns as style references. These reflect the user's personal taste — lean toward a similar feel (groove density, syncopation, velocity dynamics) when it fits the request, but always prioritize actually satisfying the request over forcing a match to these references:
+
+${examples}`;
+}
 
 export const SYSTEM_PROMPT = `You are a drum pattern generator for a step sequencer with 16 steps per bar.
 You receive a user request (genre, tempo, time signature, or style description) and return ONLY valid JSON — no prose, no markdown code blocks, no explanation before or after.

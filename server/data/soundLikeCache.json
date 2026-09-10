@@ -1,0 +1,28 @@
+{
+  "eric melvin": {
+    "value": {
+      "suggestions": [
+        {
+          "player": "Eric Melvin",
+          "amp": "Mesa/Boogie Mark IV",
+          "reason": "According to the Seymour Duncan Setups feature, Eric Melvin relied exclusively on the Mesa/Boogie Mark IV Amp Head as his core NOFX tone.",
+          "searchQuery": "Mesa Boogie Mark IV"
+        },
+        {
+          "player": "Eric Melvin",
+          "amp": "Mesa/Boogie Mark V",
+          "reason": "Eric Melvin was listed as a Mesa/Boogie artist on the official Mesa/Boogie website using the Mark V 90-Watt Tube Head, a later-era update to his classic Mark series sound.",
+          "searchQuery": "Mesa Boogie Mark V"
+        },
+        {
+          "player": "Eric Melvin",
+          "amp": "Fractal Audio Axe-FX III",
+          "reason": "Melvin posted on social media (@eric_melvin) that he was 'getting started with the new Fractal Audio Axe-FX III', showing a move toward modelling in his more recent rig.",
+          "searchQuery": "Fractal Axe-FX III"
+        }
+      ],
+      "usedWebSearch": true
+    },
+    "cachedAt": "2026-09-10T05:14:56.227Z"
+  }
+}

@@ -48,6 +48,23 @@ export function deletePattern(name) {
   writeAll(readAll().filter((p) => p.name !== name));
 }
 
+// Marks/unmarks a saved pattern as a style reference for AI beat
+// generation (see PromptBar.jsx / server/generatePattern.js). Old entries
+// without the field simply behave as `false` — no migration needed.
+export function setPatternReference(name, isReference) {
+  const all = readAll();
+  const entry = all.find((p) => p.name === name);
+  if (!entry) return;
+  entry.isReference = isReference;
+  writeAll(all);
+}
+
+export function listReferencePatterns() {
+  return readAll()
+    .filter((p) => p.isReference)
+    .sort((a, b) => b.savedAt - a.savedAt);
+}
+
 function readAll() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);

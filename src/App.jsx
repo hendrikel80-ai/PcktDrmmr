@@ -8,6 +8,8 @@ import KitSelector from './components/KitSelector';
 import PatternManager from './components/PatternManager';
 import GuitarPanel from './components/GuitarPanel';
 import MicPanel from './components/MicPanel';
+import AmpPanel from './components/AmpPanel';
+import SoundLike from './components/SoundLike';
 import RecordingPanel from './components/RecordingPanel';
 import { isTauriRuntime } from './utils/platform';
 import logo from './assets/pocket-studio-logo.png';
@@ -43,7 +45,6 @@ export default function App() {
     setMicReverb,
     setGuitarTunerEnabled,
     tunerReading,
-    getLatencyInfo,
     guitarModelInfo,
     loadGuitarModel,
     recordingSupported,
@@ -69,37 +70,46 @@ export default function App() {
         <img src={logo} alt="Pocket Studio" className="app__logo" />
       </header>
 
-      <GuitarPanel
-        supported={guitarSupported}
-        connected={guitarConnected}
-        devices={guitarDevices}
-        selectedDeviceId={selectedGuitarDeviceId}
-        onConnect={connectGuitar}
-        onDisconnect={disconnectGuitar}
-        onRefreshDevices={refreshGuitarDevices}
-        onInputGainChange={setGuitarInputGain}
-        onOutputGainChange={setGuitarOutputGain}
-        onBassChange={setGuitarBass}
-        onMidChange={setGuitarMid}
-        onTrebleChange={setGuitarTreble}
-        onReverbChange={setGuitarReverb}
-        onDelayEnabledChange={isTauriRuntime() ? setGuitarDelayEnabled : undefined}
-        onDelayChange={setGuitarDelay}
-        onTunerEnabledChange={isTauriRuntime() ? setGuitarTunerEnabled : undefined}
-        tunerReading={tunerReading}
-        onGetLatencyInfo={getLatencyInfo}
-        onLoadModel={isTauriRuntime() ? loadGuitarModel : undefined}
-        modelInfo={guitarModelInfo}
-      />
-
-      {isTauriRuntime() && (
-        <MicPanel
+      <div className="instrument-grid">
+        <GuitarPanel
+          supported={guitarSupported}
           connected={guitarConnected}
-          onMicEnabledChange={setMicEnabled}
-          onMicGainChange={setMicGain}
-          onMicReverbChange={setMicReverb}
+          devices={guitarDevices}
+          selectedDeviceId={selectedGuitarDeviceId}
+          onConnect={connectGuitar}
+          onDisconnect={disconnectGuitar}
+          onRefreshDevices={refreshGuitarDevices}
         />
-      )}
+
+        {isTauriRuntime() && (
+          <MicPanel
+            connected={guitarConnected}
+            onMicEnabledChange={setMicEnabled}
+            onMicGainChange={setMicGain}
+            onMicReverbChange={setMicReverb}
+          />
+        )}
+
+        <AmpPanel
+          connected={guitarConnected}
+          onInputGainChange={setGuitarInputGain}
+          onOutputGainChange={setGuitarOutputGain}
+          onBassChange={setGuitarBass}
+          onMidChange={setGuitarMid}
+          onTrebleChange={setGuitarTreble}
+          onReverbChange={setGuitarReverb}
+          onDelayEnabledChange={isTauriRuntime() ? setGuitarDelayEnabled : undefined}
+          onDelayChange={setGuitarDelay}
+          onTunerEnabledChange={isTauriRuntime() ? setGuitarTunerEnabled : undefined}
+          tunerReading={tunerReading}
+          onLoadModel={isTauriRuntime() ? loadGuitarModel : undefined}
+          modelInfo={guitarModelInfo}
+        />
+      </div>
+
+      {isTauriRuntime() && <SoundLike />}
+
+      <PromptBar onGenerate={handleLoadPattern} />
 
       <RecordingPanel
         supported={recordingSupported}
@@ -117,8 +127,6 @@ export default function App() {
           <img src={drumkitIcon} alt="" className="guitar-panel__heading-icon" />
           Drums
         </h2>
-
-        <PromptBar onGenerate={handleLoadPattern} />
 
         <KitSelector kitId={kitId} isLoading={isKitLoading} onSelect={selectKit} />
 

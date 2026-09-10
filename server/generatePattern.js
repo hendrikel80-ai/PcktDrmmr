@@ -1,11 +1,42 @@
 import { validatePattern } from '../src/data/validatePattern.js';
-import { SYSTEM_PROMPT } from './systemPrompt.js';
+import { SYSTEM_PROMPT, buildReferenceExamplesBlock } from './systemPrompt.js';
 import { callChatModel, UpstreamError } from './aiProvider.js';
 import { getCached, setCached } from './cache.js';
 
 const MAX_TOKENS = 1500;
 const MAX_ATTEMPTS = 2; // 1 Versuch + 1 Retry bei ungültigem JSON
 const CACHE_FILE = 'patternCache.json';
+const MAX_REFERENCE_PATTERNS = 5;
+
+// Drops anything malformed rather than failing the whole request — these
+// come from the user's own saved patterns, which are always app-shaped in
+// practice, but validating defensively costs nothing.
+function sanitizeReferencePatterns(referencePatterns) {
+  if (!Array.isArray(referencePatterns)) return [];
+  return referencePatterns
+    .filter((entry) => entry && typeof entry.name === 'string' && entry.pattern)
+    .filter((entry) => {
+      try {
+        validatePattern(entry.pattern);
+        return true;
+      } catch {
+        return false;
+      }
+    })
+    .slice(0, MAX_REFERENCE_PATTERNS);
+}
+
+// Cache key must include which reference patterns were active — otherwise
+// the same prompt text with vs. without references (or a different
+// reference set) would collide on one cache entry. `savedAt` is bumped by
+// patternStorage.savePattern() on every re-save, so name+savedAt also
+// invalidates the cache when a reference pattern's content changes.
+function referenceSignature(referencePatterns) {
+  return referencePatterns
+    .map((p) => `${p.name}@${p.savedAt}`)
+    .sort()
+    .join('|');
+}
 
 // Entfernt versehentliche Markdown-Codefences, falls das Modell sie trotz
 // Anweisung mal ausgibt.
@@ -24,8 +55,12 @@ function repairMissingArrayCommas(jsonText) {
   return jsonText.replace(/(-?\d+)(\s+)(?=-?\d)/g, '$1,');
 }
 
-export async function generatePattern(userPrompt) {
-  const cached = getCached(CACHE_FILE, userPrompt);
+export async function generatePattern(userPrompt, referencePatterns = []) {
+  const references = sanitizeReferencePatterns(referencePatterns);
+  const cacheKey = `${userPrompt}::refs=${referenceSignature(references)}`;
+  const system = SYSTEM_PROMPT + buildReferenceExamplesBlock(references);
+
+  const cached = getCached(CACHE_FILE, cacheKey);
   if (cached) {
     return { pattern: cached, fromCache: true };
   }
@@ -35,7 +70,7 @@ export async function generatePattern(userPrompt) {
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const { text: rawText } = await callChatModel({
-      system: SYSTEM_PROMPT,
+      system,
       userMessage: message,
       maxTokens: MAX_TOKENS,
     });
@@ -56,7 +91,7 @@ export async function generatePattern(userPrompt) {
 
     try {
       validatePattern(parsed);
-      setCached(CACHE_FILE, userPrompt, parsed);
+      setCached(CACHE_FILE, cacheKey, parsed);
       return { pattern: parsed, fromCache: false };
     } catch (err) {
       lastError = err;

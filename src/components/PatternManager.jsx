@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { deletePattern, listPatterns, loadPattern, savePattern } from '../data/patternStorage';
+import { deletePattern, listPatterns, loadPattern, savePattern, setPatternReference } from '../data/patternStorage';
 
 export default function PatternManager({ pattern, onLoad }) {
   const [name, setName] = useState('');
@@ -42,6 +42,14 @@ export default function PatternManager({ pattern, onLoad }) {
     refresh();
   }
 
+  function handleReferenceToggle(e) {
+    if (!selectedName) return;
+    setPatternReference(selectedName, e.target.checked);
+    refresh(selectedName);
+  }
+
+  const selectedEntry = saved.find((p) => p.name === selectedName);
+
   return (
     <div className="pattern-manager">
       <form className="pattern-manager__save" onSubmit={handleSave}>
@@ -67,6 +75,7 @@ export default function PatternManager({ pattern, onLoad }) {
           >
             {saved.map((p) => (
               <option key={p.name} value={p.name}>
+                {p.isReference ? '⭐ ' : ''}
                 {p.name}
               </option>
             ))}
@@ -82,6 +91,17 @@ export default function PatternManager({ pattern, onLoad }) {
           >
             🗑
           </button>
+          <label
+            className="guitar-panel__latency-toggle"
+            title="Use this pattern as a style reference for AI beat generation"
+          >
+            <input
+              type="checkbox"
+              checked={Boolean(selectedEntry?.isReference)}
+              onChange={handleReferenceToggle}
+            />
+            ⭐ Use as AI reference
+          </label>
         </div>
       )}
     </div>
