@@ -384,73 +384,86 @@ export function useAudioEngine(pattern) {
         }
       }
 
-      const url = URL.createObjectURL(finalBlob);
       const loopSuffix = trimSeconds !== null ? '-loop' : '';
-      const filename = `pocket-studio-riff-${formatTimestamp()}${loopSuffix}.${extension}`;
-      const newRecordings = [
-        { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, kind: 'browser', url, filename, createdAt: Date.now() },
-      ];
       const nativePath = await nativePathPromise;
       // Whether the native WAV already has drums mixed in (see
       // asio_engine.rs's recording-tap change) — decided per-take at
       // record-start, not re-checked here, since that's the state that
       // actually applied while this take was being captured.
       const nativeIncludesDrums = nativeDrumsForTakeRef.current;
-      if (nativePath) {
-        const nativeFilename = nativePath.split(/[\\/]/).pop();
-        newRecordings.push({
-          id: `${Date.now()}-${Math.random().toString(36).slice(2)}-native`,
-          kind: 'native',
-          path: nativePath,
-          filename: nativeFilename,
-          createdAt: Date.now(),
-          includesDrums: nativeIncludesDrums,
-        });
-      }
-      setRecordings((prev) => [...newRecordings, ...prev]);
-      setIsRecording(false);
 
-      // Fallback path only: if the native recording already has drums
-      // mixed in (the normal case now — see above), it's already the
-      // complete, guaranteed-in-sync take and this whole merge would just
-      // double up the drums. Only run it when native drums weren't
-      // available for this take (kit/pattern couldn't be loaded natively —
-      // e.g. a kit with no real sample coverage), so a recording still
-      // gets a combined file, same as before this change, just with the
-      // sync-offset slider/drift correction still doing their old job.
-      //
-      // Merging (decode both + offline render + WAV-encode) can take a
-      // moment on a longer take — don't block the UI on it. The two
-      // individual files above are already in the list either way; this
-      // just adds a third, combined one once ready.
-      if (nativePath && !nativeIncludesDrums) {
-        mergeRecordings(blob, nativePath, trimSeconds, syncOffsetMs, elapsedSeconds)
-          .then((mergedBlob) => {
-            const mergedUrl = URL.createObjectURL(mergedBlob);
-            const mergedFilename = `pocket-studio-riff-${formatTimestamp()}${loopSuffix}-mix.wav`;
-            setRecordings((prev) => [
-              {
-                id: `${Date.now()}-${Math.random().toString(36).slice(2)}-mix`,
-                kind: 'browser',
-                url: mergedUrl,
-                filename: mergedFilename,
-                createdAt: Date.now(),
-              },
-              ...prev,
-            ]);
-          })
-          .catch((err) => {
-            // Individual files are already saved either way — a failed
-            // merge just means no combined file this time, not lost audio.
-            console.error('mergeRecordings failed:', err);
-          });
-      }
+      setIsRecording(false);
       // Mirrors the auto-start on record: drums stop together with the
       // recording instead of continuing to play afterward.
       if (scheduler.isRunning) {
         scheduler.stop();
         setIsPlaying(false);
         setCurrentStep(-1);
+      }
+
+      // Exactly one list entry per take — the finished drums+guitar/mic
+      // (+vocal) mix, never the separate raw tracks that went into it.
+      // Every branch below ends up with both a real on-disk `path` (so the
+      // trash button in RecordingPanel.jsx can actually delete the file,
+      // not just the list entry) and a blob `url` (so it plays right in
+      // the app instead of only offering a download).
+      if (nativePath && nativeIncludesDrums) {
+        // The native WAV already IS the complete, guaranteed-in-sync mix
+        // (drums summed into the same buffer as guitar/mic/vocal — see
+        // asio_engine.rs) — just read it back for in-app playback.
+        try {
+          const bytes = await window.__TAURI__.core.invoke('read_native_recording', { path: nativePath });
+          const mixBlob = new Blob([new Uint8Array(bytes)], { type: 'audio/wav' });
+          const url = URL.createObjectURL(mixBlob);
+          const filename = nativePath.split(/[\\/]/).pop();
+          setRecordings((prev) => [
+            { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, path: nativePath, url, filename, createdAt: Date.now() },
+            ...prev,
+          ]);
+        } catch (err) {
+          console.error('Reading the native recording back for playback failed:', err);
+        }
+      } else if (nativePath && !nativeIncludesDrums) {
+        // Fallback: native drums weren't available for this take (e.g. a
+        // kit without full native sample coverage) — merge the browser
+        // drums recording with the native guitar/mic WAV in JS, same as
+        // before this change, then save the result to disk too so it's
+        // just as deletable/playable as the native-drums case above.
+        // Can take a moment on a longer take — don't block the UI on it.
+        mergeRecordings(blob, nativePath, trimSeconds, syncOffsetMs, elapsedSeconds)
+          .then(async (mergedBlob) => {
+            const mergedFilename = `pocket-studio-riff-${formatTimestamp()}${loopSuffix}-mix.wav`;
+            const url = URL.createObjectURL(mergedBlob);
+            let savedPath = null;
+            try {
+              const mergedBytes = Array.from(new Uint8Array(await mergedBlob.arrayBuffer()));
+              savedPath = await window.__TAURI__.core.invoke('save_recording_bytes', {
+                bytes: mergedBytes,
+                filename: mergedFilename,
+              });
+            } catch (err) {
+              console.error('Saving the merged recording to disk failed:', err);
+            }
+            setRecordings((prev) => [
+              { id: `${Date.now()}-${Math.random().toString(36).slice(2)}-mix`, path: savedPath, url, filename: mergedFilename, createdAt: Date.now() },
+              ...prev,
+            ]);
+          })
+          .catch((err) => {
+            console.error('mergeRecordings failed:', err);
+          });
+      } else {
+        // Pure browser mode (no Tauri/native chain at all) — the
+        // recorder's own blob already IS the complete drums+guitar mix
+        // (ensureEngine routes both through the same shared masterOut ->
+        // recordingDestination). No filesystem path to save to here;
+        // the trash button falls back to "remove from the list only".
+        const url = URL.createObjectURL(finalBlob);
+        const filename = `pocket-studio-riff-${formatTimestamp()}${loopSuffix}.${extension}`;
+        setRecordings((prev) => [
+          { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, url, filename, createdAt: Date.now() },
+          ...prev,
+        ]);
       }
     } else {
       // Awaited so the native chain has actually confirmed it started
@@ -514,13 +527,19 @@ export function useAudioEngine(pattern) {
     [ensureEngine]
   );
 
-  // Only removes the entry from the visible list — a native (kind:
-  // 'native') recording is already saved to disk (Downloads) and stays
-  // there; only the browser blob URL for a webm entry is ever revoked.
+  // Deletes the underlying file from disk (Downloads) when the entry has
+  // one — every take does now except the pure-browser-mode case, which
+  // never gets a filesystem path in the first place (see toggleRecording)
+  // and so just falls back to removing the list entry, same as before.
   const deleteRecording = useCallback((id) => {
     setRecordings((prev) => {
       const target = prev.find((r) => r.id === id);
       if (target?.url) URL.revokeObjectURL(target.url);
+      if (target?.path && isTauriRuntime()) {
+        window.__TAURI__.core.invoke('delete_recording_file', { path: target.path }).catch((err) => {
+          console.error('Deleting the recording file failed:', err);
+        });
+      }
       return prev.filter((r) => r.id !== id);
     });
   }, []);

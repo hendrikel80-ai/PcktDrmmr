@@ -521,14 +521,6 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-.recording-panel__native-info {
-  flex: 1;
-  min-width: 180px;
-  color: var(--text-dim);
-  font-size: 0.8rem;
-  line-height: 1.4;
-}
-
 .recording-panel__list {
   list-style: none;
   margin: 0;
@@ -1039,6 +1031,12 @@ body {
 
 .sound-like-modal__link:hover {
   text-decoration: underline;
+}
+
+.sound-like-modal__link-error {
+  margin: 6px 0 0;
+  color: var(--accent);
+  font-size: 0.8rem;
 }
 
 .sound-like-modal__hint {

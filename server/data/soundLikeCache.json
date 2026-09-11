@@ -24,5 +24,95 @@
       "usedWebSearch": true
     },
     "cachedAt": "2026-09-10T05:14:56.227Z"
+  },
+  "tim lambesis": {
+    "value": {
+      "suggestions": [
+        {
+          "player": "Tim Lambesis (As I Lay Dying)",
+          "amp": "Krank Revolution 1",
+          "reason": "Used on the 'Shadows Are Security' (2005) recording sessions, as documented in the guitar gear compendium for that album.",
+          "searchQuery": "Krank Revolution"
+        },
+        {
+          "player": "Tim Lambesis (As I Lay Dying)",
+          "amp": "Randall Ultra XL",
+          "reason": "Documented as the amp used on 'An Ocean Between Us' (2007), the band's highest-charting album (Billboard Top 10).",
+          "searchQuery": "Randall Ultra XL"
+        },
+        {
+          "player": "Tim Lambesis (As I Lay Dying)",
+          "amp": "Peavey 6505",
+          "reason": "Used in the studio for the 'Awakened' (2012) album rhythm tracks, alongside a Diezel VH4, as confirmed in a MusicRadar interview with Nick Hipa.",
+          "searchQuery": "Peavey 6505"
+        },
+        {
+          "player": "Tim Lambesis (As I Lay Dying)",
+          "amp": "Diezel VH4",
+          "reason": "Tracked alongside the Peavey 6505 for rhythm tones on 'Awakened' (2012), per a MusicRadar interview — both run through a Bogner cabinet with a Maxon OD-808.",
+          "searchQuery": "Diezel VH4"
+        }
+      ],
+      "usedWebSearch": true
+    },
+    "cachedAt": "2026-09-11T06:24:38.709Z"
+  },
+  "tim labesis": {
+    "value": {
+      "suggestions": [
+        {
+          "player": "Tim Lambesis (Austrian Death Machine)",
+          "amp": "Peavey 6505+",
+          "reason": "The Peavey 6505+ is documented as a core amp for As I Lay Dying's studio and live high-gain metalcore tone, used extensively by the band's guitarists on albums Tim fronted.",
+          "searchQuery": "Peavey 6505"
+        },
+        {
+          "player": "Nick Hipa (As I Lay Dying)",
+          "amp": "Diezel VH4",
+          "reason": "Nick Hipa confirmed in a MusicRadar interview that rhythm tracks for the album 'Awakened' were recorded with a combination of a Peavey 6505 and a Diezel VH4 through a Bogner cabinet.",
+          "searchQuery": "Diezel VH4"
+        },
+        {
+          "player": "Nick Hipa (As I Lay Dying)",
+          "amp": "Soldano SLO-100",
+          "reason": "Nick Hipa stated in a 2012 MusicRadar interview that the Soldano SLO100 was used for lead guitar tracks on the 'Awakened' album.",
+          "searchQuery": "Soldano SLO 100"
+        },
+        {
+          "player": "Phil Sgrosso (As I Lay Dying)",
+          "amp": "Mesa/Boogie Dual Rectifier",
+          "reason": "The Mesa/Boogie Dual Rectifier is documented as a core part of As I Lay Dying's rhythm guitar tone, delivering saturated high gain with tight low end characteristic of their metalcore sound.",
+          "searchQuery": "Mesa Boogie Dual Rectifier"
+        }
+      ],
+      "usedWebSearch": true
+    },
+    "cachedAt": "2026-09-11T07:48:40.071Z"
+  },
+  "brian setzer": {
+    "value": {
+      "suggestions": [
+        {
+          "player": "Brian Setzer",
+          "amp": "Fender Bassman 6G6-B (1963)",
+          "reason": "Setzer's signature amp for decades — his 2023 Premier Guitar Rig Rundown confirms he still tours with a pair of early-'60s Fender Bassman 6G6-B heads, preferring them for their solid-state rectifier and tight bass response.",
+          "searchQuery": "Fender Bassman 6G6"
+        },
+        {
+          "player": "Brian Setzer",
+          "amp": "Fender Bassman (Blonde Tolex)",
+          "reason": "Guitar World notes Setzer's main rig since 1981 has consistently been a 1963 Fender Bassman head with matching 2x12 cabinet, pushed to the edge of clean headroom for his rockabilly tone.",
+          "searchQuery": "Fender Bassman Blonde"
+        },
+        {
+          "player": "Brian Setzer",
+          "amp": "Fender Tweed Bassman",
+          "reason": "The broader Bassman 'tweed' family is closely associated with Setzer's sound; earlier tweed-era circuit variants appear in his collection alongside the 6G6-B brownface units.",
+          "searchQuery": "Fender Tweed Bassman"
+        }
+      ],
+      "usedWebSearch": true
+    },
+    "cachedAt": "2026-09-11T11:55:56.993Z"
   }
 }

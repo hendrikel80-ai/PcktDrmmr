@@ -8,7 +8,18 @@ const CACHE_FILE = 'soundLikeCache.json';
 function extractJson(rawText) {
   const trimmed = rawText.trim();
   const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-  return fenced ? fenced[1] : trimmed;
+  const candidate = fenced ? fenced[1] : trimmed;
+
+  // With web search enabled, Claude often narrates before/around the
+  // search tool call ("The search results show...") — aiProvider.js joins
+  // every text block from the response into one string, so that
+  // commentary ends up glued onto the actual JSON answer instead of the
+  // response being pure JSON. Slicing out the outermost {...} object
+  // strips any such surrounding prose rather than failing outright.
+  const start = candidate.indexOf('{');
+  const end = candidate.lastIndexOf('}');
+  if (start === -1 || end === -1 || end < start) return candidate;
+  return candidate.slice(start, end + 1);
 }
 
 function validateSuggestions(parsed) {

@@ -191,42 +191,22 @@ export default function RecordingPanel({
 
       {recordings.length > 0 && (
         <ul className="recording-panel__list">
-          {recordings.map((r) =>
-            r.kind === 'native' ? (
-              <li key={r.id} className="recording-panel__item">
-                <span className="recording-panel__native-info" title={r.path}>
-                  {r.includesDrums ? '🥁🎸🎤' : '🎸🎤'} {r.filename}
-                  <br />
-                  {r.includesDrums
-                    ? 'complete take (drums+guitar/mic, natively synced) — already saved to Downloads'
-                    : 'already saved to Downloads'}
-                </span>
-                <button
-                  type="button"
-                  className="recording-panel__delete"
-                  onClick={() => onDelete(r.id)}
-                  title="Only removes this from the list (the file stays in Downloads)"
-                >
-                  🗑
-                </button>
-              </li>
-            ) : (
-              <li key={r.id} className="recording-panel__item">
-                <audio controls src={r.url} className="recording-panel__audio" />
-                <a href={r.url} download={r.filename} className="recording-panel__download">
-                  💾 {r.filename}
-                </a>
-                <button
-                  type="button"
-                  className="recording-panel__delete"
-                  onClick={() => onDelete(r.id)}
-                  title="Remove from the list"
-                >
-                  🗑
-                </button>
-              </li>
-            )
-          )}
+          {recordings.map((r) => (
+            <li key={r.id} className="recording-panel__item">
+              <audio controls src={r.url} className="recording-panel__audio" />
+              <a href={r.url} download={r.filename} className="recording-panel__download">
+                💾 {r.filename}
+              </a>
+              <button
+                type="button"
+                className="recording-panel__delete"
+                onClick={() => onDelete(r.id)}
+                title={r.path ? 'Deletes the file from disk' : 'Remove from the list'}
+              >
+                🗑
+              </button>
+            </li>
+          ))}
         </ul>
       )}
     </div>

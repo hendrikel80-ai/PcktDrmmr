@@ -173,10 +173,35 @@ fn read_native_recording(path: String) -> Result<Vec<u8>, String> {
     std::fs::read(&path).map_err(|e| e.to_string())
 }
 
+/// Deletes a recording file from disk — the RecordingPanel.jsx trash
+/// button now removes the actual take, not just its list entry. `path` is
+/// always one this same session either wrote itself (native recordings,
+/// merged-fallback recordings saved via save_recording_bytes below) or
+/// read back via read_native_recording, never externally supplied.
+#[tauri::command]
+fn delete_recording_file(path: String) -> Result<(), String> {
+    std::fs::remove_file(&path).map_err(|e| e.to_string())
+}
+
+/// Saves a finished recording's bytes (e.g. the JS-side merged-fallback
+/// WAV from mergeRecording.js, which otherwise only ever exists as an
+/// in-memory Blob) to the same Downloads folder start_passthrough already
+/// uses for native takes — so every entry in RecordingPanel.jsx's list is
+/// backed by a real file the trash button can actually delete. Returns the
+/// full path so the frontend can store it alongside the recording entry.
+#[tauri::command]
+fn save_recording_bytes(app: tauri::AppHandle, bytes: Vec<u8>, filename: String) -> Result<String, String> {
+    let dir = app.path().download_dir().map_err(|e| e.to_string())?;
+    let path = dir.join(&filename);
+    std::fs::write(&path, &bytes).map_err(|e| e.to_string())?;
+    Ok(path.to_string_lossy().to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .manage(AsioState::default())
         .setup(|app| {
             if cfg!(debug_assertions) {
@@ -210,6 +235,8 @@ pub fn run() {
             set_mic_gain,
             set_mic_reverb,
             read_native_recording,
+            delete_recording_file,
+            save_recording_bytes,
             load_drum_kit,
             set_drum_pattern
         ])
