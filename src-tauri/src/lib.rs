@@ -1,5 +1,6 @@
 mod asio_engine;
 mod delay;
+mod drum_engine;
 mod eq;
 mod nam_ffi;
 mod noise_gate;
@@ -7,8 +8,33 @@ mod reverb;
 mod tuner;
 
 use asio_engine::{AsioState, ModelInfo};
+use drum_engine::DrumPatternDto;
 use tauri::Manager;
 use tuner::TunerReading;
+
+/// Resolves the drum-samples directory both in a packaged build (where
+/// `tauri.conf.json`'s `bundle.resources` copies `public/samples` in
+/// under `<resource_dir>/samples`) and in `cargo tauri dev` (where no
+/// bundling happens, so this falls back to the source tree relative to
+/// this crate's own manifest — `CARGO_MANIFEST_DIR` is `src-tauri/`, one
+/// level below the repo root). Tried in that order since resource_dir()
+/// is the correct answer once packaging is actually verified; the dev
+/// fallback exists so `cargo tauri dev` keeps working regardless.
+fn resolve_samples_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        let candidate = resource_dir.join("samples");
+        if candidate.is_dir() {
+            return Ok(candidate);
+        }
+    }
+    let dev_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../public/samples");
+    if dev_path.is_dir() {
+        return Ok(dev_path);
+    }
+    Err(format!(
+        "could not locate the drum samples directory (checked resource_dir()/samples and {dev_path:?})"
+    ))
+}
 
 #[tauri::command]
 fn list_devices() -> Vec<String> {
@@ -90,6 +116,13 @@ fn set_guitar_recording_active(state: tauri::State<AsioState>, active: bool) -> 
     asio_engine::set_recording_active(&state, active)
 }
 
+/// Called from JS right before set_guitar_recording_active(true) — see
+/// asio_engine.rs's set_monitoring_latency_ms doc.
+#[tauri::command]
+fn set_monitoring_latency_ms(state: tauri::State<AsioState>, ms: f32) -> Result<(), String> {
+    asio_engine::set_monitoring_latency_ms(&state, ms)
+}
+
 #[tauri::command]
 fn get_last_native_recording_path(state: tauri::State<AsioState>) -> Result<Option<String>, String> {
     asio_engine::get_last_native_recording_path(&state)
@@ -108,6 +141,26 @@ fn set_mic_gain(state: tauri::State<AsioState>, value: f32) -> Result<(), String
 #[tauri::command]
 fn set_mic_reverb(state: tauri::State<AsioState>, amount: f32) -> Result<(), String> {
     asio_engine::set_mic_reverb(&state, amount)
+}
+
+/// Loads a drum kit for the recording-tap-only native drum engine (see
+/// drum_engine.rs / asio_engine.rs's module docs) — called from JS
+/// whenever the selected kit changes, mirroring how the browser's
+/// HybridDrumEngine.loadSamples() already works. `kit_id` is the same
+/// folder name used under public/samples/ (KitConfig.samplePath in
+/// src/data/kits.js).
+#[tauri::command]
+fn load_drum_kit(app: tauri::AppHandle, state: tauri::State<AsioState>, kit_id: String) -> Result<(), String> {
+    let samples_dir = resolve_samples_dir(&app)?;
+    asio_engine::load_drum_kit(&state, &samples_dir, &kit_id)
+}
+
+/// Sets the pattern the native drum engine plays into the recording tap —
+/// called from JS whenever the sequencer pattern changes, mirroring
+/// Scheduler.setPattern() on the browser-monitoring side.
+#[tauri::command]
+fn set_drum_pattern(state: tauri::State<AsioState>, pattern: DrumPatternDto) -> Result<(), String> {
+    asio_engine::set_drum_pattern(&state, pattern)
 }
 
 /// Reads a native (guitar+mic) WAV recording's raw bytes, so the frontend
@@ -151,11 +204,14 @@ pub fn run() {
             set_tuner_enabled,
             get_tuner_reading,
             set_guitar_recording_active,
+            set_monitoring_latency_ms,
             get_last_native_recording_path,
             set_mic_enabled,
             set_mic_gain,
             set_mic_reverb,
-            read_native_recording
+            read_native_recording,
+            load_drum_kit,
+            set_drum_pattern
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

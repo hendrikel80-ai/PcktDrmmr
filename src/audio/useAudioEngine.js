@@ -4,7 +4,9 @@ import { GuitarEngine } from './GuitarEngine';
 import { NativeGuitarEngine } from './NativeGuitarEngine';
 import { Recorder } from './Recorder';
 import { mergeRecordings } from './mergeRecording';
-import { Scheduler } from './Scheduler';
+import { computeLoopTrimSeconds, trimAudioBuffer } from './loopTrim';
+import { audioBufferToWavBlob } from './wavEncode';
+import { Scheduler, SCHEDULER_START_PREROLL_SECONDS } from './Scheduler';
 import { DEFAULT_KIT_ID, getKit } from '../data/kits';
 import { isTauriRuntime } from '../utils/platform';
 
@@ -13,6 +15,21 @@ function formatTimestamp(date = new Date()) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(
     date.getHours()
   )}-${pad(date.getMinutes())}-${pad(date.getSeconds())}`;
+}
+
+// Persisted across restarts (not just session state) — this is a
+// hardware-latency calibration value for one specific machine/interface,
+// not a per-take setting, so it should stay put once dialed in.
+const SYNC_OFFSET_STORAGE_KEY = 'pocket-studio:guitar-sync-offset-ms';
+
+function readStoredSyncOffset() {
+  try {
+    const raw = localStorage.getItem(SYNC_OFFSET_STORAGE_KEY);
+    const parsed = raw === null ? 0 : Number(raw);
+    return Number.isFinite(parsed) ? parsed : 0;
+  } catch {
+    return 0;
+  }
 }
 
 // Erzeugt AudioContext/Engine/Scheduler lazy beim ersten Play- oder
@@ -31,6 +48,18 @@ export function useAudioEngine(pattern) {
   const [guitarModelInfo, setGuitarModelInfo] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordings, setRecordings] = useState([]);
+  const [loopRecording, setLoopRecording] = useState(false);
+  const [syncOffsetMs, setSyncOffsetMsState] = useState(readStoredSyncOffset);
+  const recordingStartedAtRef = useRef(null);
+  // Recording-tap-only native drum engine (see asio_engine.rs/
+  // drum_engine.rs) — tracks whether the Rust side actually has a usable
+  // kit+pattern loaded, so toggleRecording knows whether the native WAV
+  // file already contains drums (skip the old browser+native JS merge) or
+  // not (fall back to it exactly as before). Kept as refs, not state —
+  // purely an internal bookkeeping detail, never rendered.
+  const nativeKitLoadedRef = useRef(false);
+  const nativePatternSetRef = useRef(false);
+  const nativeDrumsForTakeRef = useRef(false);
   const [tunerEnabled, setTunerEnabledState] = useState(false);
   const [tunerReading, setTunerReading] = useState(null);
 
@@ -86,6 +115,22 @@ export function useAudioEngine(pattern) {
 
   useEffect(() => {
     engineRef.current?.scheduler.setPattern(patternRef.current);
+    // Native-only — keeps the recording-tap drum engine's pattern current
+    // (see toggleRecording/asio_engine.rs). Errors here just mean the next
+    // take's native file won't include drums; the browser+merge fallback
+    // still kicks in at record-stop time, nothing throws up to the caller.
+    const guitar = engineRef.current?.guitar;
+    if (guitar?.setDrumPattern) {
+      guitar
+        .setDrumPattern(pattern)
+        .then(() => {
+          nativePatternSetRef.current = true;
+        })
+        .catch((err) => {
+          console.error('Native drum pattern update failed:', err);
+          nativePatternSetRef.current = false;
+        });
+    }
   }, [pattern]);
 
   useEffect(() => {
@@ -124,13 +169,25 @@ export function useAudioEngine(pattern) {
 
   const selectKit = useCallback(
     async (id) => {
-      const { engine } = ensureEngine();
+      const { engine, guitar } = ensureEngine();
       const kitConfig = getKit(id);
       engine.setKit(kitConfig);
       setKitId(id);
       setIsKitLoading(true);
       await engine.loadSamples(id);
       setIsKitLoading(false);
+      // Native-only, and only meaningful once a session exists (fails
+      // harmlessly with "not connected" before connectGuitar() — see
+      // connectGuitar below, which retries this once a session starts).
+      if (guitar.loadDrumKit) {
+        try {
+          await guitar.loadDrumKit(id);
+          nativeKitLoadedRef.current = true;
+        } catch (err) {
+          console.error('Native drum kit load failed (recording will fall back to the browser+merge path):', err);
+          nativeKitLoadedRef.current = false;
+        }
+      }
     },
     [ensureEngine]
   );
@@ -143,8 +200,31 @@ export function useAudioEngine(pattern) {
       setSelectedGuitarDeviceId(deviceId ?? null);
       const devices = await guitar.listInputDevices(); // Labels erst nach erteilter Berechtigung verfügbar
       setGuitarDevices(devices);
+
+      // Native drums (recording-tap-only): the session only exists from
+      // here on, so re-push whatever kit/pattern are currently selected —
+      // selectKit()/the pattern effect may well have already tried and
+      // failed with "not connected" before this ran.
+      if (guitar.loadDrumKit) {
+        try {
+          await guitar.loadDrumKit(kitId);
+          nativeKitLoadedRef.current = true;
+        } catch (err) {
+          console.error('Native drum kit load failed after connect:', err);
+          nativeKitLoadedRef.current = false;
+        }
+      }
+      if (guitar.setDrumPattern) {
+        try {
+          await guitar.setDrumPattern(patternRef.current);
+          nativePatternSetRef.current = true;
+        } catch (err) {
+          console.error('Native drum pattern set failed after connect:', err);
+          nativePatternSetRef.current = false;
+        }
+      }
     },
-    [ensureEngine]
+    [ensureEngine, kitId]
   );
 
   // Awaits disconnectInput() before flipping `guitarConnected` — that keeps
@@ -240,6 +320,15 @@ export function useAudioEngine(pattern) {
     return engineRef.current?.guitar.getLatencyInfo() ?? null;
   }, []);
 
+  const setSyncOffsetMs = useCallback((ms) => {
+    setSyncOffsetMsState(ms);
+    try {
+      localStorage.setItem(SYNC_OFFSET_STORAGE_KEY, String(ms));
+    } catch {
+      // localStorage unavailable - the value still works for this session
+    }
+  }, []);
+
   // Native-only (NativeGuitarEngine) — the browser GuitarEngine has no
   // model concept, it's a fixed classic amp-sim. No-op there.
   const loadGuitarModel = useCallback(async () => {
@@ -260,16 +349,53 @@ export function useAudioEngine(pattern) {
       // finalizes asynchronously on a background thread there (see
       // NativeGuitarEngine.getLastRecordingPath), so kick that off before
       // waiting on the (independent) browser drum recording below.
-      guitar.setRecordingActive?.(false);
+      // Awaited (not fire-and-forget) so the Rust-side flag flip — and the
+      // audio-callback edge it triggers — is confirmed before the browser
+      // recorder stops too. Without this, an IPC round-trip's worth of
+      // guitar/mic audio could go missing or linger past where the drums
+      // recording ends.
+      await guitar.setRecordingActive?.(false);
       const nativePathPromise = guitar.getLastRecordingPath?.() ?? Promise.resolve(null);
       const blob = await recorder.stop();
-      const url = URL.createObjectURL(blob);
-      const extension = blob.type.includes('ogg') ? 'ogg' : 'webm';
-      const filename = `pocket-studio-riff-${formatTimestamp()}.${extension}`;
+
+      const elapsedSeconds = recordingStartedAtRef.current
+        ? (Date.now() - recordingStartedAtRef.current) / 1000
+        : null;
+      const trimSeconds =
+        loopRecording && elapsedSeconds
+          ? computeLoopTrimSeconds(elapsedSeconds, patternRef.current.bpm)
+          : null;
+      recordingStartedAtRef.current = null;
+
+      // Loop mode: a compressed webm/opus blob can't be truncated by
+      // cutting bytes, so decode -> trim to the last full bar -> re-encode
+      // as WAV. Skipped entirely when loop mode is off — the raw take
+      // stays exactly as it always has.
+      let finalBlob = blob;
+      let extension = blob.type.includes('ogg') ? 'ogg' : 'webm';
+      if (trimSeconds !== null) {
+        try {
+          const decoded = await audioCtx.decodeAudioData(await blob.arrayBuffer());
+          const trimmed = trimAudioBuffer(audioCtx, decoded, trimSeconds);
+          finalBlob = audioBufferToWavBlob(trimmed);
+          extension = 'wav';
+        } catch (err) {
+          console.error('Loop trim failed, keeping the untrimmed take:', err);
+        }
+      }
+
+      const url = URL.createObjectURL(finalBlob);
+      const loopSuffix = trimSeconds !== null ? '-loop' : '';
+      const filename = `pocket-studio-riff-${formatTimestamp()}${loopSuffix}.${extension}`;
       const newRecordings = [
         { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, kind: 'browser', url, filename, createdAt: Date.now() },
       ];
       const nativePath = await nativePathPromise;
+      // Whether the native WAV already has drums mixed in (see
+      // asio_engine.rs's recording-tap change) — decided per-take at
+      // record-start, not re-checked here, since that's the state that
+      // actually applied while this take was being captured.
+      const nativeIncludesDrums = nativeDrumsForTakeRef.current;
       if (nativePath) {
         const nativeFilename = nativePath.split(/[\\/]/).pop();
         newRecordings.push({
@@ -278,20 +404,30 @@ export function useAudioEngine(pattern) {
           path: nativePath,
           filename: nativeFilename,
           createdAt: Date.now(),
+          includesDrums: nativeIncludesDrums,
         });
       }
       setRecordings((prev) => [...newRecordings, ...prev]);
       setIsRecording(false);
 
+      // Fallback path only: if the native recording already has drums
+      // mixed in (the normal case now — see above), it's already the
+      // complete, guaranteed-in-sync take and this whole merge would just
+      // double up the drums. Only run it when native drums weren't
+      // available for this take (kit/pattern couldn't be loaded natively —
+      // e.g. a kit with no real sample coverage), so a recording still
+      // gets a combined file, same as before this change, just with the
+      // sync-offset slider/drift correction still doing their old job.
+      //
       // Merging (decode both + offline render + WAV-encode) can take a
       // moment on a longer take — don't block the UI on it. The two
       // individual files above are already in the list either way; this
       // just adds a third, combined one once ready.
-      if (nativePath) {
-        mergeRecordings(blob, nativePath)
+      if (nativePath && !nativeIncludesDrums) {
+        mergeRecordings(blob, nativePath, trimSeconds, syncOffsetMs, elapsedSeconds)
           .then((mergedBlob) => {
             const mergedUrl = URL.createObjectURL(mergedBlob);
-            const mergedFilename = `pocket-studio-riff-${formatTimestamp()}-mix.wav`;
+            const mergedFilename = `pocket-studio-riff-${formatTimestamp()}${loopSuffix}-mix.wav`;
             setRecordings((prev) => [
               {
                 id: `${Date.now()}-${Math.random().toString(36).slice(2)}-mix`,
@@ -317,7 +453,27 @@ export function useAudioEngine(pattern) {
         setCurrentStep(-1);
       }
     } else {
-      guitar.setRecordingActive?.(true);
+      // Awaited so the native chain has actually confirmed it started
+      // capturing before the browser drum recorder does — previously this
+      // was fire-and-forget, so recorder.start() could (and, per user
+      // reports, reliably did) win the race and start a measurable amount
+      // of time before the native WAV writer's first sample, making
+      // guitar/vocals land early relative to the drums in every merged
+      // take.
+      // Snapshot now (not re-read at stop time) — whatever kit/pattern
+      // state is current right as this take starts is what the native
+      // recording tap will actually mix in.
+      nativeDrumsForTakeRef.current = nativeKitLoadedRef.current && nativePatternSetRef.current;
+      // Tell the native drum engine how much browser-monitoring latency to
+      // hold its step 0 back by, so the recorded grid lines up with what
+      // the player actually heard (see NativeGuitarEngine.setMonitoringLatencyMs's
+      // doc) — must land before setRecordingActive(true) flips the flag the
+      // Rust side reads it on, hence awaited first and in this order.
+      const monitoringLatencyMs =
+        (SCHEDULER_START_PREROLL_SECONDS + (audioCtx.outputLatency || audioCtx.baseLatency || 0)) * 1000;
+      await guitar.setMonitoringLatencyMs?.(monitoringLatencyMs);
+      await guitar.setRecordingActive?.(true);
+      recordingStartedAtRef.current = Date.now();
       recorder.start();
       setIsRecording(true);
       // Drums start together with the recording (right after the
@@ -329,7 +485,7 @@ export function useAudioEngine(pattern) {
         setIsPlaying(true);
       }
     }
-  }, [ensureEngine]);
+  }, [ensureEngine, loopRecording, syncOffsetMs]);
 
   // Metronome click for RecordingPanel's count-in (see there for timing —
   // one call per counted beat). Goes straight to audioCtx.destination,
@@ -406,5 +562,9 @@ export function useAudioEngine(pattern) {
     toggleRecording,
     playCountInClick,
     deleteRecording,
+    loopRecording,
+    setLoopRecording,
+    syncOffsetMs,
+    setSyncOffsetMs,
   };
 }

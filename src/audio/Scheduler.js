@@ -9,6 +9,11 @@ import { STEPS_PER_BAR } from '../data/instruments';
 const SCHEDULE_AHEAD_TIME = 0.1; // Sekunden, die im Voraus geplant werden
 const LOOKAHEAD_MS = 25; // Timer-Tick-Intervall
 
+// Fixer Vorlauf, den start() für step 0 einplant (siehe start()). Exportiert,
+// damit useAudioEngine.js dieselbe Zahl für die native Monitoring-Latenz-
+// Kompensation verwenden kann, statt sie ein zweites Mal zu duplizieren.
+export const SCHEDULER_START_PREROLL_SECONDS = 0.05;
+
 const HUMANIZE_TIMING_SECONDS = 0.012; // ~12ms Streubreite (Zielbereich 5-15ms lt. CLAUDE.md)
 const HUMANIZE_VELOCITY_RANGE = 8; // max. Velocity-Abweichung (0-127-Skala)
 
@@ -47,7 +52,7 @@ export class Scheduler {
   start() {
     if (this.timerId !== null || !this.pattern) return;
     this.currentStep = 0;
-    this.nextNoteTime = this.audioCtx.currentTime + 0.05;
+    this.nextNoteTime = this.audioCtx.currentTime + SCHEDULER_START_PREROLL_SECONDS;
     this.timerId = setInterval(() => this._scheduler(), LOOKAHEAD_MS);
   }
 

@@ -34,6 +34,7 @@
 // detection).
 
 use crate::delay::Delay;
+use crate::drum_engine::{self, DrumEngine, DrumKit, DrumPattern, DrumPatternDto};
 use crate::eq::ToneStack;
 use crate::nam_ffi::NamModel;
 use crate::noise_gate::NoiseGate;
@@ -103,6 +104,14 @@ pub struct GuitarParams {
     mic_enabled: AtomicBool,
     mic_gain: AtomicU32,
     mic_reverb_wet: AtomicU32,
+    // Set by JS right before flipping recording_active true (see
+    // set_monitoring_latency_ms) — how many ms of browser monitoring
+    // latency (Scheduler.js's scheduling pre-roll + audioCtx.outputLatency)
+    // to hold the native drum engine's step 0 back by, so the recorded
+    // grid lines up with what the player actually heard, not with the
+    // instant the ASIO callback saw the flag flip. See drum_engine.rs's
+    // reset_take doc for the full rationale.
+    monitoring_latency_ms: AtomicU32,
 }
 
 fn load_f32(a: &AtomicU32) -> f32 {
@@ -129,6 +138,7 @@ impl GuitarParams {
             mic_enabled: AtomicBool::new(false),
             mic_gain: AtomicU32::new(1.0f32.to_bits()),
             mic_reverb_wet: AtomicU32::new(0.15f32.to_bits()),
+            monitoring_latency_ms: AtomicU32::new(0.0f32.to_bits()),
         })
     }
 }
@@ -141,6 +151,12 @@ pub struct AsioSession {
     buffer_size: usize,
     latest_tuner_reading: Arc<Mutex<Option<TunerReading>>>,
     latest_native_recording_path: Arc<Mutex<Option<PathBuf>>>,
+    // Recording-tap-only native drum engine (see drum_engine.rs's module
+    // doc) — never touches monitoring/hardware output, only the WAV file
+    // written while recording_active. Loaded/set off the audio thread,
+    // same Mutex-swap pattern as nam_model.
+    drum_kit: Arc<Mutex<Option<DrumKit>>>,
+    drum_pattern: Arc<Mutex<Option<DrumPattern>>>,
 }
 
 pub struct AsioState(pub Mutex<Option<AsioSession>>);
@@ -262,6 +278,14 @@ pub fn start(state: &AsioState, recordings_dir: PathBuf) -> Result<String, Strin
     let latest_native_recording_path: Arc<Mutex<Option<PathBuf>>> = Arc::new(Mutex::new(None));
     let latest_native_recording_path_for_writer = latest_native_recording_path.clone();
 
+    // Native drum engine state — see drum_engine.rs's module doc. Empty
+    // until the JS side calls load_drum_kit/set_drum_pattern (mirrors
+    // nam_model starting as None until load_model is called).
+    let drum_kit: Arc<Mutex<Option<DrumKit>>> = Arc::new(Mutex::new(None));
+    let drum_kit_for_callback = drum_kit.clone();
+    let drum_pattern: Arc<Mutex<Option<DrumPattern>>> = Arc::new(Mutex::new(None));
+    let drum_pattern_for_callback = drum_pattern.clone();
+
     thread::spawn(move || {
         let mut writer: Option<hound::WavWriter<std::io::BufWriter<std::fs::File>>> = None;
         let mut current_path: Option<PathBuf> = None;
@@ -331,6 +355,8 @@ pub fn start(state: &AsioState, recordings_dir: PathBuf) -> Result<String, Strin
     let mut scratch_in = vec![0.0f32; buffer_size];
     let mut scratch_out = vec![0.0f32; buffer_size];
     let mut scratch_mic = vec![0.0f32; buffer_size];
+    let mut scratch_drums = vec![0.0f32; buffer_size];
+    let mut drum_engine = DrumEngine::new(sample_rate);
     let mut gate = NoiseGate::new(sample_rate);
     let mut tone_stack = ToneStack::new(sample_rate);
     let mut delay = Delay::new(sample_rate);
@@ -486,14 +512,47 @@ pub fn start(state: &AsioState, recordings_dir: PathBuf) -> Result<String, Strin
         // scheduling/timing math needed here, just append in arrival
         // order. Cheap copy into a pooled buffer, same shape as the tuner
         // above; try_send never blocks the audio thread.
+        //
+        // Native drums (see drum_engine.rs) are rendered and mixed in
+        // HERE ONLY — scratch_out (already written to the hardware output
+        // loop below) never sees them, so they can only ever reach the
+        // recording, never monitoring.
         if recording_active {
+            if !was_recording_active {
+                // Just started this block: fresh take, step counter and
+                // voice pool reset to 0 (see drum_engine.rs's module doc
+                // on why this — not an accumulator — is what keeps
+                // triggers drift-free for the rest of the take). Step 0
+                // itself is additionally held back by the last monitoring-
+                // latency estimate JS handed us (see reset_take's doc) —
+                // read once here, right at the edge, same as every other
+                // live param.
+                let delay_ms = load_f32(&params_for_callback.monitoring_latency_ms);
+                let delay_samples = (delay_ms as f64 / 1000.0 * sample_rate).round().max(0.0) as u64;
+                drum_engine.reset_take(delay_samples);
+            }
+            scratch_drums.iter_mut().for_each(|s| *s = 0.0);
+            {
+                let kit_guard = drum_kit_for_callback.lock().ok();
+                let pattern_guard = drum_pattern_for_callback.lock().ok();
+                let kit_ref = kit_guard.as_ref().and_then(|g| g.as_ref());
+                let pattern_ref = pattern_guard.as_ref().and_then(|g| g.as_ref());
+                drum_engine.render_block(&mut scratch_drums, buffer_size, kit_ref, pattern_ref);
+            }
+
             if guitar_chunk.is_none() {
                 guitar_chunk = guitar_free_rx.try_recv().ok();
                 guitar_chunk_pos = 0;
             }
             if let Some(buf) = guitar_chunk.as_mut() {
                 let n = (buf.len() - guitar_chunk_pos).min(scratch_out.len());
-                buf[guitar_chunk_pos..guitar_chunk_pos + n].copy_from_slice(&scratch_out[..n]);
+                // Soft-clip the sum (same tanh technique as the guitar+mic
+                // mix above) — drums and the guitar/mic mix are each
+                // already close to full scale on their own, so their sum
+                // can briefly exceed it; a hard clamp there would crackle.
+                for k in 0..n {
+                    buf[guitar_chunk_pos + k] = (scratch_out[k] + scratch_drums[k]).tanh();
+                }
                 guitar_chunk_pos += n;
                 if guitar_chunk_pos >= buf.len() {
                     if let Some(full) = guitar_chunk.take() {
@@ -537,6 +596,8 @@ pub fn start(state: &AsioState, recordings_dir: PathBuf) -> Result<String, Strin
         buffer_size,
         latest_tuner_reading,
         latest_native_recording_path,
+        drum_kit,
+        drum_pattern,
     });
     Ok(msg)
 }
@@ -574,6 +635,40 @@ pub fn load_model(state: &AsioState, path: &str) -> Result<ModelInfo, String> {
     let mut model_guard = session.nam_model.lock().map_err(|e| e.to_string())?;
     *model_guard = Some(model);
     Ok(info)
+}
+
+/// Loads a drum kit's WAV samples from `<samples_dir>/<kit_id>/` for the
+/// recording-tap-only native drum engine (see drum_engine.rs). Must be
+/// called with an active session — decoding happens here, off the audio
+/// thread, before the quick swap into the shared slot the callback reads,
+/// same pattern as `load_model` above.
+pub fn load_drum_kit(state: &AsioState, samples_dir: &std::path::Path, kit_id: &str) -> Result<(), String> {
+    let guard = state.0.lock().map_err(|e| e.to_string())?;
+    let session = guard
+        .as_ref()
+        .ok_or_else(|| "not connected — call start_passthrough first".to_string())?;
+
+    let kit = drum_engine::load_kit(samples_dir, kit_id, session.sample_rate)?;
+    let mut kit_guard = session.drum_kit.lock().map_err(|e| e.to_string())?;
+    *kit_guard = Some(kit);
+    Ok(())
+}
+
+/// Sets the pattern the native drum engine plays into the recording tap —
+/// called whenever the frontend's pattern changes (mirrors
+/// Scheduler.setPattern() on the browser-monitoring side). Cheap (no I/O),
+/// but still off the audio thread like everything else that touches these
+/// shared slots.
+pub fn set_drum_pattern(state: &AsioState, dto: DrumPatternDto) -> Result<(), String> {
+    let guard = state.0.lock().map_err(|e| e.to_string())?;
+    let session = guard
+        .as_ref()
+        .ok_or_else(|| "not connected — call start_passthrough first".to_string())?;
+
+    let pattern = DrumPattern::from_dto(dto);
+    let mut pattern_guard = session.drum_pattern.lock().map_err(|e| e.to_string())?;
+    *pattern_guard = Some(pattern);
+    Ok(())
 }
 
 fn with_params<F: FnOnce(&GuitarParams)>(state: &AsioState, f: F) -> Result<(), String> {
@@ -639,6 +734,15 @@ pub fn get_tuner_reading(state: &AsioState) -> Result<Option<TunerReading>, Stri
 /// start()/stop() calls.
 pub fn set_recording_active(state: &AsioState, active: bool) -> Result<(), String> {
     with_params(state, |p| p.recording_active.store(active, Ordering::Relaxed))
+}
+
+/// Stores the current browser-monitoring latency estimate (ms), read once
+/// by the callback at the next recording_active false->true edge (see
+/// GuitarParams::monitoring_latency_ms's doc). Called from the JS side
+/// right before set_guitar_recording_active(true) — order matters, so JS
+/// awaits this call before that one.
+pub fn set_monitoring_latency_ms(state: &AsioState, ms: f32) -> Result<(), String> {
+    with_params(state, |p| store_f32(&p.monitoring_latency_ms, ms.max(0.0)))
 }
 
 /// Enables/disables the vocal mic input (see MIC_IN_CH in the callback).

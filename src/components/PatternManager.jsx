@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { deletePattern, listPatterns, loadPattern, savePattern, setPatternReference } from '../data/patternStorage';
+import { downloadPatternAsMidi } from '../audio/midiExport';
 
-export default function PatternManager({ pattern, onLoad }) {
+export default function PatternManager({ pattern, onLoad, onClear }) {
   const [name, setName] = useState('');
   const [saved, setSaved] = useState([]);
   const [selectedName, setSelectedName] = useState('');
@@ -65,6 +66,24 @@ export default function PatternManager({ pattern, onLoad }) {
           💾 Save
         </button>
       </form>
+
+      <button
+        type="button"
+        className="pattern-manager__save-btn"
+        onClick={onClear}
+        title="Reset every step in the current pattern to off"
+      >
+        ✕ Clear
+      </button>
+
+      <button
+        type="button"
+        className="pattern-manager__save-btn"
+        onClick={() => downloadPatternAsMidi(pattern)}
+        title="Export the current pattern as a Standard MIDI file to import into a DAW"
+      >
+        🎹 Export MIDI
+      </button>
 
       {saved.length > 0 && (
         <div className="pattern-manager__load">

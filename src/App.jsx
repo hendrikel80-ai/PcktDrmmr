@@ -53,6 +53,10 @@ export default function App() {
     toggleRecording,
     playCountInClick,
     deleteRecording,
+    loopRecording,
+    setLoopRecording,
+    syncOffsetMs,
+    setSyncOffsetMs,
   } = useAudioEngine(pattern);
 
   function handleBpmChange(bpm) {
@@ -62,6 +66,15 @@ export default function App() {
   function handleLoadPattern(newPattern) {
     stop();
     setPattern(newPattern);
+  }
+
+  function handleClearPattern() {
+    setPattern((p) => ({
+      ...p,
+      pattern: Object.fromEntries(
+        Object.entries(p.pattern).map(([key, steps]) => [key, steps.map(() => 0)])
+      ),
+    }));
   }
 
   return (
@@ -120,15 +133,20 @@ export default function App() {
         onToggle={toggleRecording}
         onCountInClick={playCountInClick}
         onDelete={deleteRecording}
+        loopEnabled={loopRecording}
+        onLoopEnabledChange={setLoopRecording}
+        syncOffsetMs={syncOffsetMs}
+        onSyncOffsetChange={isTauriRuntime() ? setSyncOffsetMs : undefined}
       />
 
       <section className="drums-section">
-        <h2 className="drums-section__heading">
-          <img src={drumkitIcon} alt="" className="guitar-panel__heading-icon" />
-          Drums
-        </h2>
-
-        <KitSelector kitId={kitId} isLoading={isKitLoading} onSelect={selectKit} />
+        <div className="sequencer-section__header">
+          <h2 className="drums-section__heading">
+            <img src={drumkitIcon} alt="" className="guitar-panel__heading-icon" />
+            Drums
+          </h2>
+          <KitSelector kitId={kitId} isLoading={isKitLoading} onSelect={selectKit} />
+        </div>
 
         <Transport
           isPlaying={isPlaying}
@@ -138,7 +156,7 @@ export default function App() {
           styleDescription={pattern.style_description}
         />
 
-        <PatternManager pattern={pattern} onLoad={handleLoadPattern} />
+        <PatternManager pattern={pattern} onLoad={handleLoadPattern} onClear={handleClearPattern} />
 
         <StepSequencer pattern={pattern} currentStep={currentStep} onChange={setPattern} />
       </section>

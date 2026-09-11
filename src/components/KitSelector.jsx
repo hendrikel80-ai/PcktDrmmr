@@ -3,7 +3,6 @@ import { KITS } from '../data/kits';
 export default function KitSelector({ kitId, isLoading, onSelect }) {
   return (
     <div className="kit-selector">
-      <span className="kit-selector__label">Kit</span>
       <div className="kit-selector__options">
         {KITS.map((kit) => (
           <button

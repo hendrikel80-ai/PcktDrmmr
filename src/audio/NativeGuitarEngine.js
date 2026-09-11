@@ -148,8 +148,31 @@ export class NativeGuitarEngine {
   // capture, which caused persistent audible crackling in the finished
   // recordings that survived several rounds of scheduling-precision
   // fixes; writing directly to a file sidesteps that whole problem.
+  //
+  // Returns the invoke promise (unlike the fire-and-forget setters above)
+  // so useAudioEngine.js can await the Rust-side flag flip before
+  // starting/stopping the browser drum recorder — without that, the two
+  // recordings could start/stop up to one IPC round-trip apart, which is
+  // exactly the kind of gap that made guitar/vocals drift out of sync
+  // with the drums in the merged take.
   setRecordingActive(active) {
-    window.__TAURI__.core.invoke('set_guitar_recording_active', { active }).catch(console.error);
+    return window.__TAURI__.core.invoke('set_guitar_recording_active', { active }).catch(console.error);
+  }
+
+  // Called (awaited) right before setRecordingActive(true) — hands the Rust
+  // side an estimate of the browser's own monitoring latency (Scheduler.js's
+  // fixed 50ms scheduling pre-roll + audioCtx.outputLatency), so the native
+  // drum engine can hold its step 0 back by the same amount instead of
+  // starting the recorded pattern the instant the flag flips. Without this,
+  // the recorded (near-zero-latency) native grid lands measurably earlier
+  // than the performance the player laid down while reacting to what they
+  // actually heard — a large, constant, easy-to-mistake-for-clock-drift
+  // offset. See asio_engine.rs's set_monitoring_latency_ms /
+  // drum_engine.rs's reset_take for the full rationale. Must be awaited
+  // (not fire-and-forget) so it's guaranteed to land before the recording-
+  // active flag flip that reads it.
+  async setMonitoringLatencyMs(ms) {
+    return window.__TAURI__.core.invoke('set_monitoring_latency_ms', { ms }).catch(console.error);
   }
 
   // Call once after stopping a take. Finalizing the WAV file happens
@@ -185,6 +208,26 @@ export class NativeGuitarEngine {
 
   setMicReverb(amount) {
     window.__TAURI__.core.invoke('set_mic_reverb', { amount }).catch(console.error);
+  }
+
+  // Recording-tap-only native drum engine (see drum_engine.rs /
+  // asio_engine.rs's module docs) — mixes drums into the SAME ASIO
+  // callback that captures guitar/mic, so the two can never drift apart
+  // in a recording the way the browser-drums-vs-ASIO split could. Never
+  // touches monitoring/hardware output; the browser's own drum engine
+  // (Scheduler.js) keeps handling practice playback exactly as before.
+  // Both are awaited (unlike the fire-and-forget setters above) so
+  // useAudioEngine.js can know whether native drums are actually usable
+  // for the current kit/pattern before deciding to skip the old
+  // browser+native JS merge fallback after a take.
+  async loadDrumKit(kitId) {
+    return window.__TAURI__.core.invoke('load_drum_kit', { kitId });
+  }
+
+  async setDrumPattern(pattern) {
+    return window.__TAURI__.core.invoke('set_drum_pattern', {
+      pattern: { bpm: pattern.bpm, bars: pattern.bars, pattern: pattern.pattern },
+    });
   }
 
   getLatencyInfo() {
