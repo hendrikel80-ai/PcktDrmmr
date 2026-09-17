@@ -1,0 +1,30 @@
+{
+  "genre": "punk",
+  "subgenre": "hardcore",
+  "tags": ["unison-kick-snare", "hc-beat", "quarter-note-hihat", "manual-transcription"],
+  "bpm": 180,
+  "time_signature": "4/4",
+  "bars": 4,
+  "style_description": "Punk Rock/Hardcore/HC Beat: basic driving hardcore groove, manually transcribed from notation — quarter-note closed hihat on every beat, with kick and snare hitting together in unison on every beat for a pounding, straightforward HC feel",
+  "pattern": {
+    "kick": [
+      115,0,0,0,115,0,0,0,115,0,0,0,115,0,0,0,
+      115,0,0,0,115,0,0,0,115,0,0,0,115,0,0,0,
+      115,0,0,0,115,0,0,0,115,0,0,0,115,0,0,0,
+      115,0,0,0,115,0,0,0,115,0,0,0,115,0,0,0
+    ],
+    "snare": [
+      110,0,0,0,110,0,0,0,110,0,0,0,110,0,0,0,
+      110,0,0,0,110,0,0,0,110,0,0,0,110,0,0,0,
+      110,0,0,0,110,0,0,0,110,0,0,0,110,0,0,0,
+      110,0,0,0,110,0,0,0,110,0,0,0,110,0,0,0
+    ],
+    "hihat_closed": [
+      95,0,0,0,95,0,0,0,95,0,0,0,95,0,0,0,
+      95,0,0,0,95,0,0,0,95,0,0,0,95,0,0,0,
+      95,0,0,0,95,0,0,0,95,0,0,0,95,0,0,0,
+      95,0,0,0,95,0,0,0,95,0,0,0,95,0,0,0
+    ]
+  },
+  "humanize": true
+}

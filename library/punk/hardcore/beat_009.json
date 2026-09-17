@@ -1,0 +1,30 @@
+{
+  "genre": "punk",
+  "subgenre": "hardcore",
+  "tags": ["mosh-beat", "tom-hit", "quarter-note-hihat", "manual-transcription"],
+  "bpm": 180,
+  "time_signature": "4/4",
+  "bars": 4,
+  "style_description": "Punk Rock/Hardcore/Tom Mosh Beat: classic hardcore breakdown/mosh groove, manually transcribed from notation — quarter-note closed hihat on every beat, kick on beats 1 and 2, single mid-tom hit on beat 3, beat 4 left open",
+  "pattern": {
+    "kick": [
+      115,0,0,0,115,0,0,0,0,0,0,0,0,0,0,0,
+      115,0,0,0,115,0,0,0,0,0,0,0,0,0,0,0,
+      115,0,0,0,115,0,0,0,0,0,0,0,0,0,0,0,
+      115,0,0,0,115,0,0,0,0,0,0,0,0,0,0,0
+    ],
+    "tom_mid": [
+      0,0,0,0,0,0,0,0,105,0,0,0,0,0,0,0,
+      0,0,0,0,0,0,0,0,105,0,0,0,0,0,0,0,
+      0,0,0,0,0,0,0,0,105,0,0,0,0,0,0,0,
+      0,0,0,0,0,0,0,0,105,0,0,0,0,0,0,0
+    ],
+    "hihat_closed": [
+      95,0,0,0,95,0,0,0,95,0,0,0,95,0,0,0,
+      95,0,0,0,95,0,0,0,95,0,0,0,95,0,0,0,
+      95,0,0,0,95,0,0,0,95,0,0,0,95,0,0,0,
+      95,0,0,0,95,0,0,0,95,0,0,0,95,0,0,0
+    ]
+  },
+  "humanize": true
+}

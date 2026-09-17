@@ -1,0 +1,30 @@
+{
+  "genre": "punk",
+  "subgenre": "hardcore",
+  "tags": ["fast-beat", "quarter-note-hihat", "manual-transcription"],
+  "bpm": 180,
+  "time_signature": "4/4",
+  "bars": 4,
+  "style_description": "Punk Rock/Hardcore/Fast Beat: straightforward fast punk/hardcore groove, manually transcribed from notation — quarter-note closed hihat on every beat, kick on beats 1 and 3, snare backbeat on beats 2 and 4, no ghost notes or fills",
+  "pattern": {
+    "kick": [
+      115,0,0,0,0,0,0,0,115,0,0,0,0,0,0,0,
+      115,0,0,0,0,0,0,0,115,0,0,0,0,0,0,0,
+      115,0,0,0,0,0,0,0,115,0,0,0,0,0,0,0,
+      115,0,0,0,0,0,0,0,115,0,0,0,0,0,0,0
+    ],
+    "snare": [
+      0,0,0,0,110,0,0,0,0,0,0,0,110,0,0,0,
+      0,0,0,0,110,0,0,0,0,0,0,0,110,0,0,0,
+      0,0,0,0,110,0,0,0,0,0,0,0,110,0,0,0,
+      0,0,0,0,110,0,0,0,0,0,0,0,110,0,0,0
+    ],
+    "hihat_closed": [
+      95,0,0,0,95,0,0,0,95,0,0,0,95,0,0,0,
+      95,0,0,0,95,0,0,0,95,0,0,0,95,0,0,0,
+      95,0,0,0,95,0,0,0,95,0,0,0,95,0,0,0,
+      95,0,0,0,95,0,0,0,95,0,0,0,95,0,0,0
+    ]
+  },
+  "humanize": true
+}

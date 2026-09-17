@@ -1,0 +1,30 @@
+{
+  "genre": "punk",
+  "subgenre": "hardcore",
+  "tags": ["reverse-beat", "fast-beat", "quarter-note-hihat", "manual-transcription"],
+  "bpm": 180,
+  "time_signature": "4/4",
+  "bars": 4,
+  "style_description": "Punk Rock/Hardcore/Reverse Fast Beat: fast punk/hardcore groove with kick and snare roles reversed from the standard backbeat, manually transcribed from notation — quarter-note closed hihat on every beat, snare on beats 1 and 3, kick on beats 2 and 4",
+  "pattern": {
+    "kick": [
+      0,0,0,0,115,0,0,0,0,0,0,0,115,0,0,0,
+      0,0,0,0,115,0,0,0,0,0,0,0,115,0,0,0,
+      0,0,0,0,115,0,0,0,0,0,0,0,115,0,0,0,
+      0,0,0,0,115,0,0,0,0,0,0,0,115,0,0,0
+    ],
+    "snare": [
+      110,0,0,0,0,0,0,0,110,0,0,0,0,0,0,0,
+      110,0,0,0,0,0,0,0,110,0,0,0,0,0,0,0,
+      110,0,0,0,0,0,0,0,110,0,0,0,0,0,0,0,
+      110,0,0,0,0,0,0,0,110,0,0,0,0,0,0,0
+    ],
+    "hihat_closed": [
+      95,0,0,0,95,0,0,0,95,0,0,0,95,0,0,0,
+      95,0,0,0,95,0,0,0,95,0,0,0,95,0,0,0,
+      95,0,0,0,95,0,0,0,95,0,0,0,95,0,0,0,
+      95,0,0,0,95,0,0,0,95,0,0,0,95,0,0,0
+    ]
+  },
+  "humanize": true
+}
