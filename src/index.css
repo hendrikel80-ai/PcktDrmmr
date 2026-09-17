@@ -1,19 +1,26 @@
 :root {
   color-scheme: dark;
-  --bg: #14161c;
-  --panel: #1d2029;
-  --panel-alt: #262a36;
-  --border: #333747;
-  --text: #e8e9ee;
-  --text-dim: #9296a6;
-  --accent: #ff6b4a;
+  --bg: #0d0b09;
+  --panel: #1c150f;
+  --panel-alt: #251a10;
+  --border: #40311f;
+  --text: #ece1c9;
+  --text-dim: #ab9670;
+  --gold: #c9a227;
+  --accent: #d35b2c;
   --accent-2: #4ade80;
-  --step-off: #2a2e3a;
-  --step-beat: #343948;
+  --step-off: #251a10;
+  --step-beat: #3a2917;
 
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: 'Source Sans 3', 'Segoe UI', system-ui, -apple-system, sans-serif;
   background: var(--bg);
   color: var(--text);
+}
+
+.heading-display {
+  font-family: 'Bebas Neue', 'Segoe UI', sans-serif;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 * {
@@ -56,7 +63,7 @@ body {
   margin-top: 28px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 4px;
   padding: 12px 16px;
 }
 
@@ -74,9 +81,11 @@ body {
   align-items: center;
   gap: 8px;
   margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 1.15rem;
   color: var(--text);
+  font-family: 'Bebas Neue', 'Segoe UI', sans-serif;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .prompt-bar__error {
@@ -122,7 +131,7 @@ body {
   gap: 8px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 4px;
   padding: 20px 16px;
   font-size: 0.85rem;
 }
@@ -139,8 +148,8 @@ body {
   border-radius: 50%;
   object-fit: cover;
   background: var(--panel-alt);
-  border: 2px solid var(--accent);
-  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 45%, transparent);
+  border: 2px solid var(--gold);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--gold) 45%, transparent);
 }
 
 .instrument-card__status {
@@ -182,7 +191,7 @@ body {
 .generation-box {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 4px;
   padding: 16px;
   margin-bottom: 20px;
 }
@@ -205,7 +214,7 @@ body {
 .generation-box__heading-icon {
   width: 28px;
   height: 28px;
-  border-radius: 8px;
+  border-radius: 4px;
   flex-shrink: 0;
 }
 
@@ -213,14 +222,14 @@ body {
   width: 100%;
   background: var(--panel-alt);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 4px;
   padding: 12px 14px;
   color: var(--text);
   font-size: 0.95rem;
 }
 
 .generation-box__input:focus {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--gold);
   outline-offset: -1px;
 }
 
@@ -229,7 +238,7 @@ body {
   background: var(--panel-alt);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 4px;
   padding: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -269,13 +278,13 @@ body {
 }
 
 .kit-selector__option:hover:not(:disabled) {
-  border-color: var(--accent);
+  border-color: var(--gold);
 }
 
 .kit-selector__option--active {
   background: var(--panel-alt);
-  color: var(--accent);
-  border-color: var(--accent);
+  color: var(--gold);
+  border-color: var(--gold);
   font-weight: 600;
 }
 
@@ -293,7 +302,7 @@ body {
 .guitar-panel__heading-icon {
   width: 56px;
   height: 56px;
-  border-radius: 12px;
+  border-radius: 4px;
   flex-shrink: 0;
 }
 
@@ -312,7 +321,7 @@ body {
   background: var(--panel-alt);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 4px;
   padding: 8px 16px;
   cursor: pointer;
   font-size: 0.85rem;
@@ -328,7 +337,7 @@ body {
   background: var(--panel-alt);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 4px;
   padding: 6px 10px;
   font-size: 0.85rem;
   max-width: 100%;
@@ -369,7 +378,7 @@ body {
   gap: 10px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 4px;
   padding: 12px 16px;
   margin-bottom: 20px;
   font-size: 0.85rem;
@@ -544,7 +553,7 @@ body {
   flex-wrap: wrap;
   background: var(--panel-alt);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 4px;
   padding: 8px 10px;
 }
 
@@ -556,7 +565,7 @@ body {
 }
 
 .recording-panel__download {
-  color: var(--accent);
+  color: var(--gold);
   text-decoration: none;
   font-size: 0.8rem;
   white-space: nowrap;
@@ -573,14 +582,14 @@ body {
   background: transparent;
   color: var(--text-dim);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 4px;
   padding: 4px 8px;
   cursor: pointer;
 }
 
 .recording-panel__delete:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--gold);
+  color: var(--gold);
 }
 
 .guitar-panel__error {
@@ -686,7 +695,7 @@ body {
   flex-wrap: wrap;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 4px;
   padding: 16px 20px;
   margin-bottom: 20px;
 }
@@ -695,7 +704,7 @@ body {
   background: var(--panel-alt);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 4px;
   padding: 8px 16px;
   cursor: pointer;
   font-size: 0.85rem;
@@ -737,8 +746,8 @@ body {
 }
 
 .transport__bpm-step:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--gold);
+  color: var(--gold);
 }
 
 .transport__bpm-step:disabled {
@@ -800,7 +809,7 @@ body {
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 4px;
   padding: 6px 10px;
   font-size: 0.85rem;
 }
@@ -815,7 +824,7 @@ body {
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 4px;
   padding: 6px 12px;
   cursor: pointer;
   font-size: 0.85rem;
@@ -824,7 +833,7 @@ body {
 .pattern-manager__save-btn:hover:not(:disabled),
 .pattern-manager__load-btn:hover,
 .pattern-manager__delete-btn:hover {
-  border-color: var(--accent);
+  border-color: var(--gold);
 }
 
 .pattern-manager__save-btn:disabled {
@@ -839,7 +848,7 @@ body {
 .sequencer {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 4px;
   padding: 16px;
   overflow-x: auto;
 }
@@ -889,7 +898,7 @@ body {
 .step-cell {
   width: 28px;
   height: 28px;
-  border-radius: 5px;
+  border-radius: 3px;
   background: var(--step-off);
   border: 1px solid transparent;
   cursor: pointer;
@@ -937,7 +946,7 @@ body {
 .sound-like-modal {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 4px;
   padding: 20px;
   max-width: 520px;
   width: 100%;
@@ -959,27 +968,30 @@ body {
   align-items: center;
   gap: 8px;
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.1rem;
+  font-family: 'Bebas Neue', 'Segoe UI', sans-serif;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .sound-like-modal__header-icon {
   width: 56px;
   height: 56px;
-  border-radius: 12px;
+  border-radius: 4px;
 }
 
 .sound-like-modal__close {
   background: transparent;
   color: var(--text-dim);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 4px;
   padding: 2px 10px;
   cursor: pointer;
 }
 
 .sound-like-modal__close:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--gold);
+  color: var(--gold);
 }
 
 .sound-like-modal__no-search {
@@ -1007,7 +1019,7 @@ body {
 .sound-like-modal__result {
   background: var(--panel-alt);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 4px;
   padding: 10px 12px;
 }
 
@@ -1030,7 +1042,7 @@ body {
 }
 
 .sound-like-modal__link {
-  color: var(--accent);
+  color: var(--gold);
   text-decoration: none;
   font-size: 0.8rem;
   white-space: nowrap;
