@@ -1,29 +1,58 @@
 {
   "genre": "punk",
   "subgenre": "hardcore",
-  "tags": ["unison-kick-snare", "hc-beat", "quarter-note-hihat", "manual-transcription"],
+  "tags": [
+    "kick-on-every-beat",
+    "hc-beat",
+    "eighth-note-hihat",
+    "manual-transcription"
+  ],
   "bpm": 180,
   "time_signature": "4/4",
-  "bars": 4,
-  "style_description": "Punk Rock/Hardcore/HC Beat: basic driving hardcore groove, manually transcribed from notation — quarter-note closed hihat on every beat, with kick and snare hitting together in unison on every beat for a pounding, straightforward HC feel",
+  "bars": 2,
+  "style_description": "Punk Rock/Hardcore/HC Beat: relentless driving hardcore groove, manually transcribed from notation — kick on every beat (1, 2, 3, 4), snare on the \"&\" of every beat (1&, 2&, 3&, 4&), eighth-note hihat throughout",
   "pattern": {
     "kick": [
-      115,0,0,0,115,0,0,0,115,0,0,0,115,0,0,0,
-      115,0,0,0,115,0,0,0,115,0,0,0,115,0,0,0,
       115,0,0,0,115,0,0,0,115,0,0,0,115,0,0,0,
       115,0,0,0,115,0,0,0,115,0,0,0,115,0,0,0
     ],
     "snare": [
-      110,0,0,0,110,0,0,0,110,0,0,0,110,0,0,0,
-      110,0,0,0,110,0,0,0,110,0,0,0,110,0,0,0,
-      110,0,0,0,110,0,0,0,110,0,0,0,110,0,0,0,
-      110,0,0,0,110,0,0,0,110,0,0,0,110,0,0,0
+      0,0,110,0,0,0,110,0,0,0,110,0,0,0,110,0,
+      0,0,110,0,0,0,110,0,0,0,110,0,0,0,110,0
     ],
     "hihat_closed": [
-      95,0,0,0,95,0,0,0,95,0,0,0,95,0,0,0,
-      95,0,0,0,95,0,0,0,95,0,0,0,95,0,0,0,
-      95,0,0,0,95,0,0,0,95,0,0,0,95,0,0,0,
-      95,0,0,0,95,0,0,0,95,0,0,0,95,0,0,0
+      95,
+      0,
+      95,
+      0,
+      95,
+      0,
+      95,
+      0,
+      95,
+      0,
+      95,
+      0,
+      95,
+      0,
+      95,
+      0,
+      95,
+      0,
+      95,
+      0,
+      95,
+      0,
+      95,
+      0,
+      95,
+      0,
+      95,
+      0,
+      95,
+      0,
+      95,
+      0
     ]
   },
   "humanize": true
