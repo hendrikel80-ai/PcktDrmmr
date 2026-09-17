@@ -112,18 +112,20 @@ export default function RecordingPanel({
         <img src={onAirIcon} alt="Recording" className="guitar-panel__heading-icon" />
 
         <div className="recording-panel__main">
-          <label
-            className="guitar-panel__latency-toggle"
-            title="Trim the recording to the end of the last full bar, so it loops cleanly"
-          >
-            <input
-              type="checkbox"
-              checked={loopEnabled}
-              disabled={isRecording || counting}
-              onChange={(e) => onLoopEnabledChange(e.target.checked)}
-            />
-            🔁 Loop recording
-          </label>
+          {onLoopEnabledChange && (
+            <label
+              className="guitar-panel__latency-toggle"
+              title="Trim the recording to the end of the last full bar, so it loops cleanly"
+            >
+              <input
+                type="checkbox"
+                checked={loopEnabled}
+                disabled={isRecording || counting}
+                onChange={(e) => onLoopEnabledChange(e.target.checked)}
+              />
+              🔁 Loop recording
+            </label>
+          )}
           <WaveBars active={isRecording} />
           <button
             type="button"

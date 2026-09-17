@@ -92,6 +92,13 @@ body {
   font-style: italic;
 }
 
+.prompt-bar__library-hint {
+  flex-basis: 100%;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
 .prompt-bar__reference-hint {
   flex-basis: 100%;
   color: var(--text-dim);
@@ -1044,4 +1051,75 @@ body {
   color: var(--text-dim);
   font-size: 0.75rem;
   font-style: italic;
+}
+
+/* ---------------------------------------------------------------------
+   Mobile (Pocket Studio Mobile, siehe MobileApp.jsx) — Touch-taugliche
+   Anpassungen für Handy/Tablet-Breiten. `.mobile-app` scopt das bewusst
+   auf die Mobile-App, damit das Desktop-Layout unangetastet bleibt, auch
+   wenn ein Desktop-Fenster mal schmaler als 768px wird.
+   --------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  .mobile-app {
+    padding: 14px 10px 40px;
+  }
+
+  .mobile-app .app__header {
+    margin-bottom: 14px;
+  }
+
+  .mobile-app .app__logo {
+    width: 96px;
+    height: 96px;
+  }
+
+  .mobile-app .instrument-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mobile-app .drums-section {
+    padding: 10px 12px;
+  }
+
+  .mobile-app .sequencer-section__header {
+    gap: 8px;
+  }
+
+  /* Größere Tipp-Ziele statt der für Maus-Klicks ausgelegten 28px-Zellen
+     (WCAG-Richtwert liegt bei ~44px). Die Zeile bleibt horizontal
+     scrollbar (`.sequencer` hat bereits overflow-x: auto), nur die
+     einzelnen Zellen/Beschriftungen werden großzügiger. */
+  .mobile-app .sequencer {
+    padding: 10px;
+  }
+
+  .mobile-app .sequencer__label {
+    width: 84px;
+    font-size: 0.78rem;
+  }
+
+  .mobile-app .sequencer__tick {
+    width: 38px;
+    font-size: 0.65rem;
+  }
+
+  .mobile-app .step-cell {
+    width: 38px;
+    height: 38px;
+  }
+
+  .mobile-app .sequencer__steps {
+    gap: 6px;
+  }
+
+  /* Bedienelemente generell etwas großzügiger für Finger statt Mauszeiger. */
+  .mobile-app button,
+  .mobile-app select,
+  .mobile-app input[type='text'] {
+    min-height: 40px;
+  }
+
+  .mobile-app input[type='range'] {
+    min-height: 24px;
+  }
 }

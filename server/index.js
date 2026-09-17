@@ -4,6 +4,8 @@ import cors from 'cors';
 import { generatePattern } from './generatePattern.js';
 import { soundLike } from './soundLike.js';
 import { UpstreamError } from './aiProvider.js';
+import { findLibraryMatch, listLibrary } from './library.js';
+import { validatePattern } from '../src/data/validatePattern.js';
 
 // Eigener Variablenname statt PORT: unter `npm run dev:full` (concurrently)
 // erben sowohl der Vite- als auch der Backend-Prozess dieselbe Shell-Umgebung
@@ -32,6 +34,21 @@ app.post('/api/generate-pattern', async (req, res) => {
   const referencePatterns = Array.isArray(req.body?.referencePatterns)
     ? req.body.referencePatterns.slice(0, MAX_REFERENCE_PATTERNS)
     : [];
+
+  // Beat-Library zuerst versuchen (kuratierte Patterns, kein API-Call,
+  // gegen die Eintönigkeit einzeln live generierter Beats — siehe
+  // CLAUDE.md-Aufgabe "Beat-Library mit Generator-Agent"). Nur bei einem
+  // erkannten Genre-Stichwort im Prompt greift das; sonst unverändert
+  // weiter zur Live-Generierung unten.
+  const libraryMatch = findLibraryMatch(prompt);
+  if (libraryMatch) {
+    try {
+      validatePattern(libraryMatch.pattern); // defensiv gegen manuell beschädigte Library-Dateien
+      return res.json({ pattern: libraryMatch.pattern, fromCache: false, fromLibrary: true });
+    } catch (err) {
+      console.error('Library-Pattern ungültig, falle auf Live-Generierung zurück:', err.message);
+    }
+  }
 
   try {
     const { pattern, fromCache } = await generatePattern(prompt, referencePatterns);
@@ -63,6 +80,12 @@ app.post('/api/sound-like', async (req, res) => {
     console.error('sound-like failed:', err.message);
     res.status(status).json({ error: err.message });
   }
+});
+
+// Fürs aktive Durchsuchen/Laden aus der Beat-Library (LibraryBrowser.jsx),
+// statt nur über die heuristische Prompt-Suche in /api/generate-pattern.
+app.get('/api/library', (_req, res) => {
+  res.json({ entries: listLibrary() });
 });
 
 app.get('/api/health', (_req, res) => {

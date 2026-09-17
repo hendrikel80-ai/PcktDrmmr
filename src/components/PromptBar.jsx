@@ -9,6 +9,7 @@ export default function PromptBar({ onGenerate }) {
   const [status, setStatus] = useState('idle'); // idle | loading | error
   const [errorMessage, setErrorMessage] = useState('');
   const [lastFromCache, setLastFromCache] = useState(false);
+  const [lastFromLibrary, setLastFromLibrary] = useState(false);
   const [lastReferenceCount, setLastReferenceCount] = useState(0);
 
   async function handleSubmit(e) {
@@ -46,7 +47,10 @@ export default function PromptBar({ onGenerate }) {
 
       onGenerate(data.pattern);
       setLastFromCache(Boolean(data.fromCache));
-      setLastReferenceCount(referencePatterns.length);
+      setLastFromLibrary(Boolean(data.fromLibrary));
+      // Referenzen fließen nur in die Live-Generierung ein, nicht in einen
+      // Library-Treffer — der Hinweis wäre sonst irreführend.
+      setLastReferenceCount(data.fromLibrary ? 0 : referencePatterns.length);
       setStatus('idle');
     } catch (err) {
       setStatus('error');
@@ -74,6 +78,11 @@ export default function PromptBar({ onGenerate }) {
           {status === 'loading' ? 'Generating…' : '✨ Generate'}
         </button>
         {status === 'error' && <div className="prompt-bar__error">{errorMessage}</div>}
+        {status === 'idle' && lastFromLibrary && (
+          <span className="prompt-bar__library-hint" title="Served from the curated beat library — no AI tokens used">
+            📚 from the beat library
+          </span>
+        )}
         {status === 'idle' && lastFromCache && (
           <span className="prompt-bar__cache-hint" title="Served from the local cache — no AI tokens used">
             📦 from cache

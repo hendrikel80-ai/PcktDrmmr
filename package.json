@@ -7,6 +7,7 @@
     "dev": "vite",
     "postinstall": "node scripts/copy-nam-assets.mjs",
     "server": "node server/index.js",
+    "generate-library": "node scripts/generate-library.mjs",
     "dev:full": "concurrently -n web,api -c blue,green \"npm:dev\" \"npm:server\"",
     "build": "vite build",
     "preview": "vite preview"

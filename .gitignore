@@ -5,6 +5,9 @@ dist
 !.env.example
 *.local
 
+# Log-Dateien der Hintergrund-Startskripte (start-pocket-studio.ps1)
+logs/
+
 # Generiert via scripts/copy-nam-assets.mjs (postinstall) aus node_modules
 public/nam/
 

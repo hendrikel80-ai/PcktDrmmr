@@ -1,5 +1,66 @@
 # Pocket Studio – Projektkontext
 
+## Status (Stand: 2026-09-14)
+
+Die App ist inzwischen weit über die ursprüngliche Browser-Only-Planung
+unten hinausgewachsen (die "Erste Aufgaben"/"Aufgabe: ..."-Abschnitte
+unterhalb sind der ursprüngliche Projekt-Auftrag und größtenteils als
+historischer Kontext stehen gelassen, nicht als aktueller Stand).
+
+### Fertig implementiert
+
+- **Sequencer & Patterns**: 16-Step-Sequencer mit Velocity (Off/Ghost/
+  Normal/Accent), lookahead-präzises Scheduling (`Scheduler.js`),
+  Pattern-Speichern/Laden, MIDI-Export.
+- **KI-Beat-Generierung**: Text-Prompt → Pattern-JSON über austauschbaren
+  Provider (Anthropic/DeepSeek, `server/aiProvider.js`), lokaler Cache für
+  Anfragen, nutzt gespeicherte Patterns als Referenz für mehr Vielfalt.
+  Sitzt jetzt direkt in der Drums-Sektion.
+- **Drum-Kits**: mehrere echte Sample-Kits (u. a. `pearl-acoustic` als
+  einziges mit voller Instrument-Abdeckung) + Synth-Fallback für Lücken,
+  Velocity-Layer, Round-Robin, Hihat-Choking.
+- **Desktop-App (Tauri + natives Rust/ASIO-Backend, `src-tauri/`)**:
+  - Gitarre/Mikro live über ASIO (Focusrite Scarlett), echter NAM-
+    Amp-Modeler nativ eingebunden (kein Browser-Latenz-Nachteil mehr),
+    Stimmgerät, zweiter Mic-Kanal (Vocals).
+  - **Native Drum-Engine** (`src-tauri/src/drum_engine.rs`): rendert Drums
+    ausschließlich in den Aufnahme-Tap, im selben ASIO-Callback wie
+    Gitarre/Mikro — macht Drift zwischen Drums und Gitarre in Aufnahmen
+    strukturell unmöglich (war zuvor ein reales Problem: zwei unabhängige
+    Uhren, Browser-Drums vs. native Aufnahme). Kompensiert zusätzlich die
+    Browser-Monitoring-Latenz, damit der Start-Zeitpunkt exakt zum
+    gehörten Beat passt.
+  - **Aufnahmen-Liste**: zeigt nur noch den fertigen Mix (Drums+Gitarre/
+    Mic+Vocals), direkt in der App abspielbar, Mülleimer löscht die Datei
+    wirklich von der Festplatte.
+  - **Sound Like**: KI recherchiert per Websuche zu einem Musiker/Band
+    passendes Amp-Equipment, verlinkt pro Vorschlag zur TONE3000-Suche
+    (öffnet im Systembrowser über `tauri-plugin-opener`).
+  - **Start-Skripte** (`start-pocket-studio.{bat,ps1,vbs}` + Desktop-
+    Verknüpfung): App startet komplett ohne sichtbare Konsolenfenster.
+- **Mobile-App** (`?mobile`-URL-Parameter, `src/components/MobileApp.jsx`,
+  `src/audio/useMobileAudioEngine.js`): schlanke, eigenständige Variante
+  für Handy/Tablet im Browser (kein Tauri/ASIO nötig) — Drum-Sequencer +
+  einfache Mikrofon-Aufnahme (kein Amp-Sim, nur Pegel), responsives
+  Touch-Layout. Läuft im selben Vite-Projekt wie die Desktop-App, ohne sie
+  zu berühren. **Aktuell noch nicht committet, noch nicht auf einem
+  echten Gerät getestet.**
+
+### Bekannte offene Punkte
+
+- **Produktions-Installer** (`cargo tauri build`) für die Desktop-App
+  noch nicht erstellt — bisher nur Dev-Modus (`cargo tauri dev --release`).
+  Nötig, um die App an Freunde weiterzugeben.
+- **KI-Backend-Hosting für Freunde/Mobile** bewusst zurückgestellt: der
+  Anthropic/DeepSeek-API-Key liegt nur lokal in `.env`, ein gehostetes
+  Backend (mit Nutzungslimit) wäre nötig, damit "Generate a Beat"/
+  "Sound Like" auch außerhalb des eigenen Rechners funktionieren.
+- **HTTPS für Mobile-Mikrofonzugriff im Heimnetz** noch nicht eingerichtet
+  — `getUserMedia` verlangt einen sicheren Kontext, ein einfacher
+  Tunnel-Dienst (z. B. Tailscale Funnel) wäre der schnellste Weg.
+- **Code-Signing** für einen künftigen Installer fehlt — Windows würde bei
+  Freunden eine SmartScreen-Warnung zeigen.
+
 ## Ziel
 
 Eine Web-App, mit der man (Gitarrist/Bassist) realistische Drum-Beats zum
@@ -196,6 +257,86 @@ in dieser Phase** – rein lokaler Download.
    Ausbauschritt – erfordert Microsoft-OAuth (Azure App-Registrierung)
    und Upload über Microsoft Graph API. Bewusst zurückgestellt, bis
    lokale Aufnahme sauber läuft.
+
+## Aufgabe: Beat-Library mit Generator-Agent (gegen Eintönigkeit)
+
+**Hintergrund:** Live-generierte Patterns pro Anfrage wirken zu eintönig
+(LLM fällt bei isolierten Einzelanfragen leicht in ähnliche Muster).
+Lösung: eine vorab kuratierte, nach Genre/Subgenre geordnete Library
+von Patterns, aus der der Sequencer bevorzugt bedient statt bei jeder
+Anfrage live und unabhängig zu generieren.
+
+**Ordnerstruktur (nutzt bestehendes JSON-Pattern-Schema):**
+```
+library/
+  punk/
+    street-punk/
+      beat_001.json
+      beat_002.json
+    skate-punk/
+    pop-punk/
+    hardcore/
+  metal/
+    thrash/
+    doom/
+    metalcore/
+  funk/
+  reggae/
+  rock/
+    classic-rock/
+    indie-rock/
+```
+
+**Metadaten pro Pattern-Datei (Erweiterung des bestehenden Schemas):**
+```json
+{
+  "genre": "punk",
+  "subgenre": "street-punk",
+  "tags": ["driving", "syncopated-kick", "with-fill"],
+  "bpm": 160,
+  "time_signature": "4/4",
+  "bars": 1,
+  "style_description": "...",
+  "pattern": { ... },
+  "humanize": true
+}
+```
+
+**Generator-Agent (Batch-Skript, einmalig/wiederholt ausführbar):**
+1. Nimmt eine Genre/Subgenre-Taxonomie als Vorgabe (siehe Beispiel unten,
+   erweiterbar)
+2. Ruft pro Subgenre mehrfach die Claude API auf, mit variierenden
+   Zusatz-Anweisungen (z. B. "Fokus auf treibende Achtel", "mit
+   synkopiertem Kick", "mit Fill alle 4 Takte", "halftime-Feel"), damit
+   sich die Ergebnisse innerhalb eines Subgenres unterscheiden
+3. Speichert jedes Ergebnis als JSON nach obigem Schema/Ordnerstruktur
+4. **Ähnlichkeits-Check:** einfache Distanz-Berechnung zwischen den
+   generierten Step-Arrays (z. B. Hamming-Distanz auf den Velocity-
+   Arrays), um Near-Duplikate zu erkennen und zu verwerfen/neu zu
+   generieren
+
+**Beispiel-Taxonomie zum Start (erweiterbar):**
+- Punk: Street Punk, Skate Punk, Pop-Punk, Hardcore
+- Metal: Thrash, Doom, Metalcore
+- Rock: Classic Rock, Indie Rock
+- Funk
+- Reggae
+
+**Sequencer-Anbindung:**
+- Nutzer-Prompt (z. B. "Punk Beat 160 BPM") wird primär als Filter/Suche
+  in der Library interpretiert (Genre + Subgenre-Erkennung + BPM-Bereich
+  + ggf. Tags), nicht mehr zwangsläufig als Live-Generierungs-Auftrag
+- Live-API-Generierung bleibt als Fallback für Anfragen, die die Library
+  nicht abdeckt
+- **Qualitäts-Feedback-Loop (später):** kuratierte Library-Patterns
+  können als Few-Shot-Beispiele in den Live-Generierungs-Prompt
+  zurückgespeist werden, um auch spontane Anfragen zu verbessern
+
+**Aufwand-Hinweis:** Der Agent selbst ist ein überschaubares Batch-
+Skript. Der eigentliche Aufwand liegt in der Taxonomie-Pflege und darin,
+pro Subgenre genug variantenreiche Patterns zu generieren, bis sich die
+Library wirklich vielfältig anfühlt – eher Kuratier- als
+Programmieraufwand.
 
 ## Offene Entscheidungen
 

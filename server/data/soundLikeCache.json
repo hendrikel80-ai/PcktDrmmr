@@ -114,5 +114,37 @@
       "usedWebSearch": true
     },
     "cachedAt": "2026-09-11T11:55:56.993Z"
+  },
+  "street punk": {
+    "value": {
+      "suggestions": [
+        {
+          "player": "Johnny Ramone (The Ramones)",
+          "amp": "Marshall JMP/Plexi",
+          "reason": "The Ramones' standard live rig featured Marshall heads running multiple 4x12 cabinets, defining the raw, stripped-down street/punk guitar sound from the mid-70s onward.",
+          "searchQuery": "Marshall JMP Plexi"
+        },
+        {
+          "player": "Mick Beaufoy (Cock Sparrer)",
+          "amp": "Marshall JCM800",
+          "reason": "Cock Sparrer's quintessential street punk tone is widely associated with a Marshall JCM800 — the go-to amp recreated by fans covering their songs, prized for its biting, overdriven character.",
+          "searchQuery": "Marshall JCM800"
+        },
+        {
+          "player": "Steve Jones (Sex Pistols)",
+          "amp": "Marshall JMP 100W",
+          "reason": "Steve Jones' ferocious Sex Pistols rhythm tone — a foundational influence for all street punk — was built around cranked Marshall JMP heads, inspiring countless punk players after him.",
+          "searchQuery": "Marshall JMP"
+        },
+        {
+          "player": "Greg Ginn (Black Flag)",
+          "amp": "Randall solid-state",
+          "reason": "Ginn famously produced his brutal, raw hardcore/street punk sound using a solid-state Randall amp pushed extremely loud, a tone that influenced the harder side of the street punk genre.",
+          "searchQuery": "Randall solid state"
+        }
+      ],
+      "usedWebSearch": true
+    },
+    "cachedAt": "2026-09-14T07:19:05.448Z"
   }
 }

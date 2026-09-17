@@ -39,8 +39,10 @@ function referenceSignature(referencePatterns) {
 }
 
 // Entfernt versehentliche Markdown-Codefences, falls das Modell sie trotz
-// Anweisung mal ausgibt.
-function extractJson(rawText) {
+// Anweisung mal ausgibt. Exportiert, damit scripts/generate-library.mjs
+// (Batch-Generator für die Beat-Library) dieselbe Reparatur-Logik nutzt
+// statt sie zu duplizieren.
+export function extractJson(rawText) {
   const trimmed = rawText.trim();
   const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
   return fenced ? fenced[1] : trimmed;
@@ -50,8 +52,8 @@ function extractJson(rawText) {
 // getrennte nackte Zahlen ohne Komma dazwischen — kommt das trotzdem vor
 // (z.B. fehlendes Komma an einer Gruppengrenze im Pattern-Array), ist das
 // Einfügen eines Kommas ein sicherer Reparaturversuch, bevor ein ganzer
-// Retry-Request verbraucht wird.
-function repairMissingArrayCommas(jsonText) {
+// Retry-Request verbraucht wird. Exportiert, siehe extractJson oben.
+export function repairMissingArrayCommas(jsonText) {
   return jsonText.replace(/(-?\d+)(\s+)(?=-?\d)/g, '$1,');
 }
 

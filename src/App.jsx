@@ -4,6 +4,7 @@ import { useAudioEngine } from './audio/useAudioEngine';
 import StepSequencer from './components/StepSequencer';
 import Transport from './components/Transport';
 import PromptBar from './components/PromptBar';
+import LibraryBrowser from './components/LibraryBrowser';
 import KitSelector from './components/KitSelector';
 import PatternManager from './components/PatternManager';
 import GuitarPanel from './components/GuitarPanel';
@@ -122,8 +123,6 @@ export default function App() {
 
       {isTauriRuntime() && <SoundLike />}
 
-      <PromptBar onGenerate={handleLoadPattern} />
-
       <RecordingPanel
         supported={recordingSupported}
         isRecording={isRecording}
@@ -135,8 +134,6 @@ export default function App() {
         onDelete={deleteRecording}
         loopEnabled={loopRecording}
         onLoopEnabledChange={setLoopRecording}
-        syncOffsetMs={syncOffsetMs}
-        onSyncOffsetChange={isTauriRuntime() ? setSyncOffsetMs : undefined}
       />
 
       <section className="drums-section">
@@ -147,6 +144,9 @@ export default function App() {
           </h2>
           <KitSelector kitId={kitId} isLoading={isKitLoading} onSelect={selectKit} />
         </div>
+
+        <PromptBar onGenerate={handleLoadPattern} />
+        <LibraryBrowser onLoad={handleLoadPattern} />
 
         <Transport
           isPlaying={isPlaying}
