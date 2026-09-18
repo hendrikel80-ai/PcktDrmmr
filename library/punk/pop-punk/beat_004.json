@@ -1,0 +1,24 @@
+{
+  "genre": "punk",
+  "subgenre": "pop-punk",
+  "tags": ["quarter-note-hihat", "manual-transcription"],
+  "bpm": 120,
+  "time_signature": "4/4",
+  "bars": 2,
+  "style_description": "Inspired by Sportis: pop punk beat, quarter-note closed hihat on every beat throughout, bar 1 kick on 1, 1&, 3, 3& and 4&, bar 2 kick on 2&, 3 and 3&, snare on 2 and 4 in both bars",
+  "pattern": {
+    "kick": [
+      115,0,115,0,0,0,0,0,115,0,115,0,0,0,115,0,
+      0,0,0,0,0,0,115,0,115,0,115,0,0,0,0,0
+    ],
+    "snare": [
+      0,0,0,0,110,0,0,0,0,0,0,0,110,0,0,0,
+      0,0,0,0,110,0,0,0,0,0,0,0,110,0,0,0
+    ],
+    "hihat_closed": [
+      95,0,0,0,95,0,0,0,95,0,0,0,95,0,0,0,
+      95,0,0,0,95,0,0,0,95,0,0,0,95,0,0,0
+    ]
+  },
+  "humanize": true
+}
