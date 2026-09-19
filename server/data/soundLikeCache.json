@@ -146,5 +146,37 @@
       "usedWebSearch": true
     },
     "cachedAt": "2026-09-14T07:19:05.448Z"
+  },
+  "sportfreunde": {
+    "value": {
+      "suggestions": [
+        {
+          "player": "Peter Brugger (Sportfreunde Stiller)",
+          "amp": "Marshall JCM 800",
+          "reason": "Bavarian indie-rock bands of their era commonly relied on Marshall JCM 800s for their punchy, mid-forward crunch tone, consistent with Sportfreunde Stiller's live guitar sound.",
+          "searchQuery": "Marshall JCM 800"
+        },
+        {
+          "player": "Peter Brugger (Sportfreunde Stiller)",
+          "amp": "Vox AC30",
+          "reason": "The AC30 is a staple of European indie-rock guitarists seeking chimey cleans and natural breakup, fitting the jangly, melodic guitar tones heard on albums like 'You Have to Win Zweikampf'.",
+          "searchQuery": "Vox AC30"
+        },
+        {
+          "player": "Peter Brugger (Sportfreunde Stiller)",
+          "amp": "Fender Blues Deluxe",
+          "reason": "The Fender Blues Deluxe's warm, clean headroom suits the melodic, mid-tempo indie rock of Sportfreunde Stiller and is a common choice for German indie guitarists of the 2000s.",
+          "searchQuery": "Fender Blues Deluxe"
+        },
+        {
+          "player": "Rüdiger Linhof (Sportfreunde Stiller)",
+          "amp": "Ampeg SVT",
+          "reason": "The Ampeg SVT is a standard choice for bass players in rock trios needing a full, punchy low end to anchor a guitar-drums-bass format like Sportfreunde Stiller's.",
+          "searchQuery": "Ampeg SVT"
+        }
+      ],
+      "usedWebSearch": true
+    },
+    "cachedAt": "2026-09-18T14:27:51.573Z"
   }
 }
