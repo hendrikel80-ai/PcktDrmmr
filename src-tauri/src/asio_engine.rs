@@ -462,6 +462,21 @@ pub fn start(state: &AsioState, recordings_dir: PathBuf) -> Result<String, Strin
             tuner_pos = 0;
         }
 
+        // Soft-clip (tanh) the gained signal before it reaches NAM/the tone
+        // stack — input_gain alone (up to a few times unity) had nothing to
+        // round it off, so a high Gain setting drove the signal into raw
+        // digital overs that then rang through EQ/delay/reverb unclipped,
+        // only getting squashed by the final output-stage tanh far too
+        // late to sound like anything but harsh digital crackle. tanh here
+        // is close to transparent for a normal, low-amplitude DI signal at
+        // unity gain and progressively saturates as Gain is turned up,
+        // same technique as the existing guitar+mic/drums mix-stage
+        // soft-clips further down. Placed after the tuner capture above so
+        // pitch tracking still sees the clean, unsaturated signal.
+        for s in scratch_in.iter_mut() {
+            *s = s.tanh();
+        }
+
         {
             let mut model_guard = match nam_model_for_callback.lock() {
                 Ok(g) => g,

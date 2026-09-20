@@ -100,8 +100,8 @@ export default function AmpPanel({
               <input
                 type="range"
                 min={0}
-                max={8}
-                step={0.1}
+                max={4}
+                step={0.05}
                 defaultValue={1}
                 onChange={(e) => onInputGainChange(Number(e.target.value))}
               />
