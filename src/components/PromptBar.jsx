@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import drumkitIcon from '../assets/icon-drumkit.png';
 import { listReferencePatterns } from '../data/patternStorage';
 
 const MAX_REFERENCE_PATTERNS = 5;
@@ -62,7 +61,6 @@ export default function PromptBar({ onGenerate }) {
     <div className="generation-box">
       <form className="generation-box__form" onSubmit={handleSubmit}>
         <div className="generation-box__heading">
-          <img src={drumkitIcon} alt="" className="generation-box__heading-icon" />
           <span>Generate a Beat</span>
         </div>
         <input

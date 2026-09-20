@@ -110,7 +110,21 @@ export default function LibraryBrowser({ onLoad }) {
         ))}
       </select>
       <button type="button" className="pattern-manager__load-btn" onClick={handleLoad} disabled={selectedIndex === ''}>
-        📂 Load from Library
+        <svg
+          viewBox="0 0 24 24"
+          width="13"
+          height="13"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ verticalAlign: '-2px', marginRight: '4px' }}
+          aria-hidden="true"
+        >
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+        </svg>
+        Load from Library
       </button>
     </div>
   );

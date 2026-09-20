@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import onAirIcon from '../assets/icon-onair.png';
 
 // Counts up musically (1, 2, 3, [4]) as a count-in instead of a plain
 // "get ready" countdown — the number of counted beats and their tempo
@@ -108,9 +107,8 @@ export default function RecordingPanel({
 
   return (
     <div className="recording-panel">
+      <h2 className="drums-section__heading">Recording</h2>
       <div className="recording-panel__row">
-        <img src={onAirIcon} alt="Recording" className="guitar-panel__heading-icon" />
-
         <div className="recording-panel__main">
           {onLoopEnabledChange && (
             <label
@@ -155,7 +153,8 @@ export default function RecordingPanel({
             onClick={handleToggleClick}
             disabled={counting}
           >
-            {isRecording ? '⏹ Stop Recording' : 'Start Recording'}
+            <span className="recording-panel__toggle-dot" aria-hidden="true" />
+            {isRecording ? 'Stop Recording' : 'Start Recording'}
           </button>
           <WaveBars active={isRecording} />
 
@@ -188,9 +187,31 @@ export default function RecordingPanel({
         <div className="recording-panel__sync">
           <label
             htmlFor="recording-sync-offset"
-            title="Shifts the guitar/mic track relative to the drums in the merged recording. Positive = delay guitar/mic (use if it comes in too early); negative = delay the drums instead (use if guitar/mic comes in too late)."
+            title="Shifts the guitar/mic track relative to the drums. Positive = delay guitar/mic (use if it comes in too early); negative = delay the drums instead (use if guitar/mic still comes in too late after the automatic latency compensation)."
           >
-            🎯 Guitar/Mic Sync
+            <svg
+              viewBox="0 0 24 24"
+              width="13"
+              height="13"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ verticalAlign: '-2px', marginRight: '4px' }}
+              aria-hidden="true"
+            >
+              <line x1="4" y1="21" x2="4" y2="14" />
+              <line x1="4" y1="10" x2="4" y2="3" />
+              <line x1="12" y1="21" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12" y2="3" />
+              <line x1="20" y1="21" x2="20" y2="16" />
+              <line x1="20" y1="12" x2="20" y2="3" />
+              <line x1="1" y1="14" x2="7" y2="14" />
+              <line x1="9" y1="8" x2="15" y2="8" />
+              <line x1="17" y1="16" x2="23" y2="16" />
+            </svg>
+            Guitar/Mic Sync
           </label>
           <input
             id="recording-sync-offset"
@@ -214,7 +235,23 @@ export default function RecordingPanel({
             <li key={r.id} className="recording-panel__item">
               <audio controls src={r.url} className="recording-panel__audio" />
               <a href={r.url} download={r.filename} className="recording-panel__download">
-                💾 {r.filename}
+                <svg
+                  viewBox="0 0 24 24"
+                  width="13"
+                  height="13"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ verticalAlign: '-2px', marginRight: '4px' }}
+                  aria-hidden="true"
+                >
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                  <polyline points="17 21 17 13 7 13 7 21" />
+                  <polyline points="7 3 7 8 15 8" />
+                </svg>
+                {r.filename}
               </a>
               <button
                 type="button"

@@ -25,6 +25,19 @@ export default function KitSelector({ kitId, isLoading, onSelect }) {
             onClick={() => onSelect(kit.id)}
             disabled={isLoading && kit.id !== kitId}
           >
+            <svg
+              viewBox="0 0 24 24"
+              width="13"
+              height="13"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+            </svg>
             {kit.name}
           </button>
         ))}

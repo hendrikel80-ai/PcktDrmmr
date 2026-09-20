@@ -19,6 +19,7 @@
 
 .heading-display {
   font-family: 'Bebas Neue', 'Segoe UI', sans-serif;
+  font-weight: 400;
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
@@ -31,6 +32,58 @@ body {
   margin: 0;
   min-height: 100vh;
   background: var(--bg);
+}
+
+/* Gold-Rail-Stil (siehe Slider-Vorschläge), aber in --accent statt --gold —
+   dieselbe Sunburst-Rot-Orange-Farbe wie die aktiven Steps im Drum-
+   Sequencer. Gilt global für jeden input[type=range] in der App (Guitar/Mic
+   Sync, Mic-Panel, alle Amp-Regler). */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type='range']:focus {
+  outline: none;
+}
+
+input[type='range']:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+input[type='range']::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+input[type='range']::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  margin-top: -5px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 60%, transparent);
 }
 
 .app {
@@ -84,6 +137,7 @@ body {
   font-size: 1.15rem;
   color: var(--text);
   font-family: 'Bebas Neue', 'Segoe UI', sans-serif;
+  font-weight: 400;
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
@@ -170,9 +224,12 @@ body {
 
 .instrument-card__title {
   margin: 4px 0 0;
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 1.1rem;
   color: var(--text);
+  font-family: 'Bebas Neue', 'Segoe UI', sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .instrument-card__subtitle {
@@ -194,6 +251,7 @@ body {
   border-radius: 4px;
   padding: 16px;
   margin-bottom: 20px;
+  box-shadow: 0 0 22px color-mix(in srgb, var(--gold) 16%, transparent);
 }
 
 .generation-box__form {
@@ -207,8 +265,11 @@ body {
   align-items: center;
   gap: 10px;
   color: var(--text);
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 1.15rem;
+  font-family: 'Bebas Neue', 'Segoe UI', sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .generation-box__heading-icon {
@@ -268,6 +329,9 @@ body {
 }
 
 .kit-selector__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--border);
@@ -284,7 +348,9 @@ body {
 .kit-selector__option--active {
   background: var(--panel-alt);
   color: var(--gold);
-  border-color: var(--gold);
+  border-color: var(--border);
+  border-radius: 4px;
+  padding: 5px 12px;
   font-weight: 600;
 }
 
@@ -300,8 +366,8 @@ body {
 }
 
 .guitar-panel__heading-icon {
-  width: 56px;
-  height: 56px;
+  width: 64px;
+  height: 64px;
   border-radius: 4px;
   flex-shrink: 0;
 }
@@ -485,6 +551,9 @@ body {
 }
 
 .recording-panel__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
   background: transparent;
   color: var(--text);
   border: 1px solid var(--border);
@@ -494,6 +563,15 @@ body {
   font-size: 0.9rem;
   font-weight: 600;
   transition: box-shadow 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.recording-panel__toggle-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  flex-shrink: 0;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .recording-panel__toggle:disabled {
@@ -510,6 +588,24 @@ body {
   color: var(--accent);
   border-color: var(--accent);
   box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.recording-panel__toggle--active .recording-panel__toggle-dot {
+  background: var(--accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 80%, transparent);
+  animation: recording-toggle-dot-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes recording-toggle-dot-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.85);
+  }
 }
 
 .recording-panel__live {
@@ -970,6 +1066,7 @@ body {
   margin: 0;
   font-size: 1.1rem;
   font-family: 'Bebas Neue', 'Segoe UI', sans-serif;
+  font-weight: 400;
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }

@@ -34,6 +34,16 @@ export class Scheduler {
     this.nextNoteTime = 0;
     this.timerId = null;
     this.onStep = null; // callback(stepIndex) für UI-Highlight
+    // Während einer laufenden native Aufnahme unterdrückt (siehe
+    // setRecording) — drum_engine.rs' Recording-Tap implementiert das
+    // ±12ms-Timing-Jitter bewusst nicht nach (siehe dessen Moduldoku), sonst
+    // liegt das Live-Monitoring hörbar neben der aufgenommenen Spur, obwohl
+    // beide vom selben Pattern/BPM ausgehen.
+    this.recording = false;
+  }
+
+  setRecording(active) {
+    this.recording = active;
   }
 
   setPattern(pattern) {
@@ -76,7 +86,8 @@ export class Scheduler {
 
   _scheduleStep(stepIndex, time) {
     const { pattern, humanize } = this.pattern;
-    const timingOffset = humanize ? triangularRandom() * HUMANIZE_TIMING_SECONDS : 0;
+    const timingOffset =
+      humanize && !this.recording ? triangularRandom() * HUMANIZE_TIMING_SECONDS : 0;
     const triggerTime = time + timingOffset;
 
     for (const [instrumentKey, steps] of Object.entries(pattern)) {

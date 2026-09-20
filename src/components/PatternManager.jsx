@@ -63,7 +63,23 @@ export default function PatternManager({ pattern, onLoad, onClear }) {
           maxLength={60}
         />
         <button type="submit" className="pattern-manager__save-btn" disabled={!name.trim()}>
-          💾 Save
+          <svg
+            viewBox="0 0 24 24"
+            width="13"
+            height="13"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ verticalAlign: '-2px', marginRight: '4px' }}
+            aria-hidden="true"
+          >
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+            <polyline points="17 21 17 13 7 13 7 21" />
+            <polyline points="7 3 7 8 15 8" />
+          </svg>
+          Save
         </button>
       </form>
 
@@ -82,7 +98,26 @@ export default function PatternManager({ pattern, onLoad, onClear }) {
         onClick={() => downloadPatternAsMidi(pattern)}
         title="Export the current pattern as a Standard MIDI file to import into a DAW"
       >
-        🎹 Export MIDI
+        <svg
+          viewBox="0 0 24 24"
+          width="13"
+          height="13"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ verticalAlign: '-2px', marginRight: '4px' }}
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="9" />
+          <circle cx="12" cy="7.3" r="0.9" fill="currentColor" stroke="none" />
+          <circle cx="8.7" cy="9.3" r="0.9" fill="currentColor" stroke="none" />
+          <circle cx="15.3" cy="9.3" r="0.9" fill="currentColor" stroke="none" />
+          <circle cx="8.7" cy="13.3" r="0.9" fill="currentColor" stroke="none" />
+          <circle cx="15.3" cy="13.3" r="0.9" fill="currentColor" stroke="none" />
+        </svg>
+        Export MIDI
       </button>
 
       {saved.length > 0 && (
@@ -100,7 +135,21 @@ export default function PatternManager({ pattern, onLoad, onClear }) {
             ))}
           </select>
           <button type="button" className="pattern-manager__load-btn" onClick={handleLoad}>
-            📂 Load
+            <svg
+              viewBox="0 0 24 24"
+              width="13"
+              height="13"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ verticalAlign: '-2px', marginRight: '4px' }}
+              aria-hidden="true"
+            >
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+            </svg>
+            Load
           </button>
           <button
             type="button"
@@ -119,7 +168,21 @@ export default function PatternManager({ pattern, onLoad, onClear }) {
               checked={Boolean(selectedEntry?.isReference)}
               onChange={handleReferenceToggle}
             />
-            ⭐ Use as AI reference
+            <svg
+              viewBox="0 0 24 24"
+              width="13"
+              height="13"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ verticalAlign: '-2px', marginRight: '4px' }}
+              aria-hidden="true"
+            >
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+            Use as AI reference
           </label>
         </div>
       )}

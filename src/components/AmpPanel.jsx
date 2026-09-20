@@ -174,7 +174,23 @@ export default function AmpPanel({
                     onDelayEnabledChange(e.target.checked);
                   }}
                 />
-                🔁 Delay
+                <svg
+                  viewBox="0 0 24 24"
+                  width="13"
+                  height="13"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ verticalAlign: '-2px', marginRight: '4px' }}
+                  aria-hidden="true"
+                >
+                  <rect x="3" y="9" width="3" height="6" fill="currentColor" stroke="none" />
+                  <rect x="9" y="6" width="3" height="12" fill="currentColor" stroke="none" opacity="0.65" />
+                  <rect x="15" y="3" width="3" height="18" fill="currentColor" stroke="none" opacity="0.35" />
+                </svg>
+                Delay
               </label>
               <input
                 type="range"
@@ -199,7 +215,23 @@ export default function AmpPanel({
                     onTunerEnabledChange(e.target.checked);
                   }}
                 />
-                🎵 Tuner
+                <svg
+                  viewBox="0 0 24 24"
+                  width="13"
+                  height="13"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ verticalAlign: '-2px', marginRight: '4px' }}
+                  aria-hidden="true"
+                >
+                  <path d="M9 2v9a3 3 0 0 0 6 0V2" />
+                  <line x1="12" y1="14" x2="12" y2="22" />
+                  <line x1="8" y1="22" x2="16" y2="22" />
+                </svg>
+                Tuner
               </label>
               {tunerEnabled && <TunerDisplay reading={tunerReading} />}
             </div>

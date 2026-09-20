@@ -22,13 +22,22 @@ function formatTimestamp(date = new Date()) {
 // not a per-take setting, so it should stay put once dialed in.
 const SYNC_OFFSET_STORAGE_KEY = 'pocket-studio:guitar-sync-offset-ms';
 
+// Measured default for this rig (Focusrite Scarlett via ASIO, WebView2):
+// audioCtx.outputLatency alone leaves the native drum engine's automatic
+// compensation (see useAudioEngine's toggleRecording) about 22ms short of
+// the real browser-monitoring latency, found by ear via the Guitar/Mic Sync
+// slider. Used only the first time the app runs (or after localStorage is
+// cleared) — the slider immediately overwrites this with whatever the user
+// dials in, and that value then takes over from here on.
+const DEFAULT_SYNC_OFFSET_MS = -22;
+
 function readStoredSyncOffset() {
   try {
     const raw = localStorage.getItem(SYNC_OFFSET_STORAGE_KEY);
-    const parsed = raw === null ? 0 : Number(raw);
-    return Number.isFinite(parsed) ? parsed : 0;
+    const parsed = raw === null ? DEFAULT_SYNC_OFFSET_MS : Number(raw);
+    return Number.isFinite(parsed) ? parsed : DEFAULT_SYNC_OFFSET_MS;
   } catch {
-    return 0;
+    return DEFAULT_SYNC_OFFSET_MS;
   }
 }
 
@@ -393,6 +402,9 @@ export function useAudioEngine(pattern) {
       const nativeIncludesDrums = nativeDrumsForTakeRef.current;
 
       setIsRecording(false);
+      // Undoes the setRecording(true) above — otherwise a later Play (no
+      // recording involved) would silently keep timing humanize suppressed.
+      scheduler.setRecording(false);
       // Mirrors the auto-start on record: drums stop together with the
       // recording instead of continuing to play afterward.
       if (scheduler.isRunning) {
@@ -477,13 +489,35 @@ export function useAudioEngine(pattern) {
       // state is current right as this take starts is what the native
       // recording tap will actually mix in.
       nativeDrumsForTakeRef.current = nativeKitLoadedRef.current && nativePatternSetRef.current;
+      // Only the native recording tap needs this: it deliberately doesn't
+      // reimplement Scheduler.js's ±12ms timing humanize (see drum_engine.rs's
+      // module doc), so leaving it on here would make the live monitoring
+      // the guitarist actually plays along to drift up to ~12ms per hit away
+      // from the perfectly-quantized grid that gets recorded. The JS-merge
+      // fallback and pure-browser paths capture the same Scheduler.js output
+      // the player hears, so humanize there is already sample-for-sample
+      // consistent and must stay on.
+      scheduler.setRecording(nativeDrumsForTakeRef.current);
       // Tell the native drum engine how much browser-monitoring latency to
       // hold its step 0 back by, so the recorded grid lines up with what
       // the player actually heard (see NativeGuitarEngine.setMonitoringLatencyMs's
       // doc) — must land before setRecordingActive(true) flips the flag the
       // Rust side reads it on, hence awaited first and in this order.
-      const monitoringLatencyMs =
-        (SCHEDULER_START_PREROLL_SECONDS + (audioCtx.outputLatency || audioCtx.baseLatency || 0)) * 1000;
+      //
+      // audioCtx.outputLatency is only an estimate — Chromium/WebView2 don't
+      // guarantee it reflects the full OS mixer + driver chain down to the
+      // speakers, so a few ms of residual offset can remain even once this
+      // is applied. Rather than guess a hardware-specific fudge factor, reuse
+      // the existing Guitar/Mic Sync slider (RecordingPanel) as a manual
+      // trim on top of the measured value — same sign convention as its
+      // merge-path use (see mergeRecording.js): negative delays the drums
+      // (use if guitar/mic still comes in too late after the automatic
+      // compensation), positive pulls drums earlier (guitar/mic too early).
+      const monitoringLatencyMs = Math.max(
+        0,
+        (SCHEDULER_START_PREROLL_SECONDS + (audioCtx.outputLatency || audioCtx.baseLatency || 0)) * 1000 -
+          syncOffsetMs
+      );
       await guitar.setMonitoringLatencyMs?.(monitoringLatencyMs);
       await guitar.setRecordingActive?.(true);
       recordingStartedAtRef.current = Date.now();

@@ -134,6 +134,8 @@ export default function App() {
         onDelete={deleteRecording}
         loopEnabled={loopRecording}
         onLoopEnabledChange={setLoopRecording}
+        syncOffsetMs={syncOffsetMs}
+        onSyncOffsetChange={setSyncOffsetMs}
       />
 
       <section className="drums-section">

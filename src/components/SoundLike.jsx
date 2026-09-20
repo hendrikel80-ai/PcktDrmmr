@@ -89,7 +89,6 @@ export default function SoundLike() {
     <div className="generation-box">
       <form className="generation-box__form" onSubmit={handleSubmit}>
         <div className="generation-box__heading">
-          <img src={ampIcon} alt="" className="generation-box__heading-icon" />
           <span>Make me Sound Like</span>
         </div>
         <input
