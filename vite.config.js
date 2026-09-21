@@ -5,6 +5,11 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: process.env.PORT ? Number(process.env.PORT) : 5173,
+    // Lets the dev server accept requests arriving through the Tailscale
+    // Funnel HTTPS tunnel (its own *.ts.net hostname, not localhost) — for
+    // mobile testing only, see CLAUDE.md's "HTTPS für Mobile-Mikrofonzugriff"
+    // note. Vite otherwise rejects unrecognized Host headers by default.
+    allowedHosts: true,
     proxy: {
       '/api': {
         target: 'http://localhost:3001',

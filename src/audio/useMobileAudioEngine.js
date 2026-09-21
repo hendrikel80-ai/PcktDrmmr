@@ -46,21 +46,32 @@ export function useMobileAudioEngine(pattern) {
       latencyHint: 'interactive',
     });
 
-    // Gemeinsamer Ausgang für Drums UND Mikrofon, wie useAudioEngine.js's
-    // masterOut — macht die gemeinsame Aufnahme trivial.
+    // Drums-Ausgang: geht auf den Lautsprecher, damit man dazu spielen
+    // kann, UND in den Recording-Bus.
     const masterOut = audioCtx.createGain();
     masterOut.connect(audioCtx.destination);
 
+    // Separater Recording-Bus statt Mikrofon direkt auf masterOut zu
+    // routen: masterOut geht auf den Lautsprecher, und ein offenes Handy-
+    // Mikrofon direkt neben genau diesem Lautsprecher erzeugt sofort
+    // Feedback (hört sich selbst), sobald es mit auf denselben Bus läuft —
+    // per Nutzer-Test bestätigt ("das Mikrofon hat voll Feedback"). Drums
+    // sollen weiterhin hörbar UND aufgenommen werden (masterOut -> beides),
+    // das Mikrofon dagegen nur aufgenommen, nie zurück auf den Lautsprecher
+    // gegeben — genau wie jede normale Diktier-/Recording-App das macht.
+    const recordingBus = audioCtx.createGain();
+    masterOut.connect(recordingBus);
+
     const recordingDestination = audioCtx.createMediaStreamDestination();
-    masterOut.connect(recordingDestination);
+    recordingBus.connect(recordingDestination);
     const recorder = new Recorder(recordingDestination.stream);
 
     const engine = new HybridDrumEngine(audioCtx, getKit(DEFAULT_KIT_ID), masterOut);
     const scheduler = new Scheduler(audioCtx, engine);
     scheduler.onStep = (step) => setCurrentStep(step);
 
-    const mic = new MicEngine(audioCtx, masterOut);
-    engineRef.current = { audioCtx, masterOut, engine, scheduler, mic, recorder };
+    const mic = new MicEngine(audioCtx, recordingBus);
+    engineRef.current = { audioCtx, masterOut, recordingBus, engine, scheduler, mic, recorder };
     engine.loadSamples(DEFAULT_KIT_ID);
 
     if (import.meta.env.DEV) {

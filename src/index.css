@@ -1224,11 +1224,79 @@ input[type='range']::-moz-range-thumb {
   /* Bedienelemente generell etwas großzügiger für Finger statt Mauszeiger. */
   .mobile-app button,
   .mobile-app select,
-  .mobile-app input[type='text'] {
+  .mobile-app input[type='text'],
+  .mobile-app input[type='number'] {
     min-height: 40px;
   }
 
   .mobile-app input[type='range'] {
     min-height: 24px;
+  }
+
+  /* Tempo-Leiste: Play-Button + BPM-Pille wirkten bei schmalen Breiten
+     gequetscht — kleinerer Außenabstand, echte 40x40px-Tipp-Ziele für
+     die +/- Stepper (statt der 26px-Desktop-Größe, die durch die
+     min-height-Regel oben zuvor nur in der Höhe, nicht in der Breite,
+     gestreckt wurde und dadurch schief aussah) und eine größere,
+     besser lesbare BPM-Zahl. */
+  .mobile-app .transport {
+    gap: 10px;
+    padding: 12px 14px;
+  }
+
+  /* Play-Button und BPM-Pille auf dieselbe Höhe gebracht — vorher landete
+     Play bei 40px (generische Button-Regel oben) während die BPM-Pille
+     durch die 40px-Stepper + eigenes Padding auf 48px kam, sah dadurch
+     ungleich hoch aus. */
+  .mobile-app .transport__play {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mobile-app .transport__bpm {
+    height: 48px;
+    gap: 6px;
+    padding: 0 10px;
+  }
+
+  .mobile-app .transport__bpm-step {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 0;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+
+  .mobile-app .transport__bpm-input {
+    width: 2.6em;
+    font-size: 1.05rem;
+  }
+
+  /* Recording-Uhr an die Höhe des Start/Stop-Recording-Buttons angeglichen
+     (40px, aus der generischen Button-Regel oben) und insgesamt kompakter,
+     statt in ihrer eigenen, größeren Desktop-Größe daneben zu stehen. */
+  .mobile-app .recording-panel__timer {
+    height: 40px;
+    gap: 6px;
+    padding: 0 6px 0 12px;
+  }
+
+  .mobile-app .recording-panel__timer-time {
+    font-size: 0.8rem;
+    min-width: 3em;
+  }
+
+  .mobile-app .recording-panel__timer-stop {
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    min-height: 22px;
+    padding: 0;
+    font-size: 0.6rem;
+    flex-shrink: 0;
   }
 }

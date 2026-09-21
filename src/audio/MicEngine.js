@@ -6,8 +6,12 @@
 // dupliziert statt aus GuitarEngine.js importiert (siehe Plan), damit der
 // Desktop-kritische Pfad dort unangetastet bleibt.
 //
-// Kette: getUserMedia-Quelle -> GainNode -> gemeinsamer Master-Bus (auch
-// die Drums laufen hier zusammen, siehe useMobileAudioEngine.js).
+// Kette: getUserMedia-Quelle -> GainNode -> Recording-Bus (siehe
+// useMobileAudioEngine.js). Bewusst NICHT auf denselben Bus wie der
+// Lautsprecher-Ausgang (masterOut) — ein offenes Handy-Mikrofon direkt
+// neben dem eigenen Lautsprecher würde sich sonst selbst hören und
+// Feedback erzeugen. Nur die Drums müssen laut zu hören sein; das
+// Mikrofon wird nur aufgenommen, nicht zurückgegeben.
 
 function translateGetUserMediaError(err) {
   switch (err.name) {
@@ -25,9 +29,9 @@ function translateGetUserMediaError(err) {
 }
 
 export class MicEngine {
-  constructor(audioCtx, masterOut) {
+  constructor(audioCtx, outputBus) {
     this.audioCtx = audioCtx;
-    this.masterOut = masterOut;
+    this.outputBus = outputBus;
 
     this.stream = null;
     this.sourceNode = null;
@@ -35,7 +39,7 @@ export class MicEngine {
 
     this.inputGain = audioCtx.createGain();
     this.inputGain.gain.value = 1;
-    this.inputGain.connect(this.masterOut);
+    this.inputGain.connect(this.outputBus);
   }
 
   static isSupported() {

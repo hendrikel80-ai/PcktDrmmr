@@ -55,6 +55,10 @@ export default function MobileMicPanel({
       </div>
       <h3 className="instrument-card__title">Microphone</h3>
       <p className="instrument-card__subtitle">Acoustic guitar via mic</p>
+      <p className="instrument-card__hint">
+        Use headphones while recording — otherwise the mic also picks up the drums straight from
+        the speaker, doubling them in the recording.
+      </p>
 
       <div className="guitar-panel__row">
         {!connected ? (

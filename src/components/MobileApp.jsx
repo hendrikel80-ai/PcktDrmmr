@@ -4,6 +4,7 @@ import { useMobileAudioEngine } from '../audio/useMobileAudioEngine';
 import StepSequencer from './StepSequencer';
 import Transport from './Transport';
 import PromptBar from './PromptBar';
+import LibraryBrowser from './LibraryBrowser';
 import KitSelector from './KitSelector';
 import PatternManager from './PatternManager';
 import MobileMicPanel from './MobileMicPanel';
@@ -98,6 +99,7 @@ export default function MobileApp() {
         </div>
 
         <PromptBar onGenerate={handleLoadPattern} />
+        <LibraryBrowser onLoad={handleLoadPattern} />
 
         <Transport
           isPlaying={isPlaying}
