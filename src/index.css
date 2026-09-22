@@ -172,7 +172,9 @@ input[type='range']::-moz-range-thumb {
 .instrument-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  align-items: start;
+  /* Default grid stretch (not align-items: start) so Guitar/Mic/Amp all
+     match the tallest card's height per row, instead of each sizing to
+     its own (differing) content. */
   gap: 16px;
   margin-bottom: 20px;
 }
@@ -347,7 +349,7 @@ input[type='range']::-moz-range-thumb {
 
 .kit-selector__option--active {
   background: var(--panel-alt);
-  color: var(--gold);
+  color: var(--accent);
   border-color: var(--border);
   border-radius: 4px;
   padding: 5px 12px;

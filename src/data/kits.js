@@ -42,7 +42,7 @@ const KITS_SYNTH_FALLBACK = {
 export const KITS = [
   {
     id: 'pearl-acoustic',
-    name: 'Acoustic (real)',
+    name: 'Acoustic',
     description:
       'Real acoustic kit (CC-BY 3.0, "Pearl Master Studio" by enoe, oramics/sampled): full set — kick, snare, hihat, crash, ride, all 3 toms.',
     samplePath: 'pearl-acoustic',

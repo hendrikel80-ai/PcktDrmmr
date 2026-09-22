@@ -1,6 +1,6 @@
 import { KITS } from '../data/kits';
 
-// Nur "Acoustic (real)" (pearl-acoustic, ohnehin schon DEFAULT_KIT_ID in
+// Nur "Acoustic" (pearl-acoustic, ohnehin schon DEFAULT_KIT_ID in
 // data/kits.js) wird angezeigt — die anderen Kits bleiben in KITS definiert
 // (falls später wieder gebraucht), sind hier aber auf Nutzerwunsch
 // ausgeblendet.
