@@ -127,8 +127,33 @@ function formatTimestamp(date = new Date()) {
   )}-${pad(date.getMinutes())}-${pad(date.getSeconds())}`;
 }
 
-export function downloadPatternAsMidi(pattern, filename = `pocket-studio-beat-${formatTimestamp()}.mid`) {
+// Prefers a real "Save As" dialog (File System Access API — supported in
+// Tauri's WebView2 and desktop Chrome/Edge, lets the user pick both the
+// filename and the folder) over the plain <a download> fallback, which
+// always saves silently to the browser's fixed downloads folder under the
+// auto-generated timestamp name with no chance to rename it. Not supported
+// on mobile browsers or Firefox/Safari, hence the fallback rather than a
+// hard requirement.
+export async function downloadPatternAsMidi(pattern, filename = `pocket-studio-beat-${formatTimestamp()}.mid`) {
   const bytes = patternToMidiBytes(pattern);
+
+  if (typeof window.showSaveFilePicker === 'function') {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: filename,
+        types: [{ description: 'MIDI file', accept: { 'audio/midi': ['.mid'] } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(bytes);
+      await writable.close();
+      return;
+    } catch (err) {
+      if (err?.name === 'AbortError') return; // user cancelled the dialog — not an error
+      console.error('showSaveFilePicker failed, falling back to a direct download:', err);
+      // fall through to the plain download below
+    }
+  }
+
   const blob = new Blob([bytes], { type: 'audio/midi' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
