@@ -1,29 +1,6 @@
 import { useState } from 'react';
 import ampIcon from '../assets/icon-amp.png';
-import { isTauriRuntime } from '../utils/platform';
-
-// A plain <a target="_blank"> does nothing in the Tauri desktop shell on
-// its own — there's no browser tab to open a new one in. The opener plugin
-// (src-tauri/src/lib.rs's tauri_plugin_opener::init() + capabilities/
-// default.json's "opener:default") normally intercepts such clicks
-// automatically via its own window-level listener, no JS glue needed — but
-// this modal's own backdrop-close handling calls stopPropagation() on
-// every click inside it (see the modal div below), which stops the click
-// from ever bubbling up to that window-level listener. So this link needs
-// its own handler after all — using window.__TAURI__.core.invoke directly
-// (the same low-level bridge every other Tauri call in this app already
-// goes through) rather than window.__TAURI__.opener.openUrl, which depends
-// on a separate, less reliably-bundled JS API surface. Reports failures
-// via `onError` (instead of only console.error) so a rejected/denied call
-// is visible in the UI without needing devtools open.
-function openExternal(e, url, onError) {
-  if (!isTauriRuntime()) return; // plain browser tab: let the normal <a target="_blank"> handle it
-  e.preventDefault();
-  window.__TAURI__.core.invoke('plugin:opener|open_url', { url }).catch((err) => {
-    console.error(err);
-    onError?.(err?.message || String(err));
-  });
-}
+import { openExternal } from '../utils/openExternal';
 
 // "Sound Like": enter a musician/band, Claude researches (web search
 // tool, see server/soundLike.js) real amp gear and suggests it here in a

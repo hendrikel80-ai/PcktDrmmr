@@ -1,8 +1,18 @@
+import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
+const { version: APP_VERSION } = JSON.parse(readFileSync('./package.json', 'utf-8'));
+
 export default defineConfig({
   plugins: [react()],
+  // Exposes the app version to frontend code (e.g. the feedback mailto
+  // template) as a plain string constant, inlined at build time — single
+  // source of truth is package.json, no separate version file to keep in
+  // sync.
+  define: {
+    __APP_VERSION__: JSON.stringify(APP_VERSION),
+  },
   server: {
     port: process.env.PORT ? Number(process.env.PORT) : 5173,
     // Lets the dev server accept requests arriving through the Tailscale

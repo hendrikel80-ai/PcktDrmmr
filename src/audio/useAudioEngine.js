@@ -41,6 +41,38 @@ function readStoredSyncOffset() {
   }
 }
 
+// ASIO driver/channel choice for the native (Tauri) path — same
+// persisted-across-restarts reasoning as the sync offset above: a
+// hardware-setup calibration, not a per-take setting. `null` driver name
+// means "let the Rust side use its own Focusrite-first-else-first-driver
+// fallback" (see asio_engine.rs's start()) — never persisted until the
+// user actually picks something in the ASIO settings dialog, so the
+// developer's own existing Scarlett Solo setup keeps working with zero
+// configuration after this feature ships.
+const ASIO_DRIVER_STORAGE_KEY = 'pocket-studio:asio-driver-name';
+const ASIO_GUITAR_CHANNEL_STORAGE_KEY = 'pocket-studio:asio-guitar-channel';
+const ASIO_MIC_CHANNEL_STORAGE_KEY = 'pocket-studio:asio-mic-channel';
+const DEFAULT_ASIO_GUITAR_CHANNEL = 1;
+const DEFAULT_ASIO_MIC_CHANNEL = 0;
+
+function readStoredAsioDriverName() {
+  try {
+    return localStorage.getItem(ASIO_DRIVER_STORAGE_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
+function readStoredAsioChannel(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    const parsed = raw === null ? fallback : Number(raw);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 // Erzeugt AudioContext/Engine/Scheduler lazy beim ersten Play- oder
 // Kit-Klick, weil Browser AudioContext ohne vorherige User-Geste blockieren.
 export function useAudioEngine(pattern) {
@@ -59,6 +91,13 @@ export function useAudioEngine(pattern) {
   const [recordings, setRecordings] = useState([]);
   const [loopRecording, setLoopRecording] = useState(false);
   const [syncOffsetMs, setSyncOffsetMsState] = useState(readStoredSyncOffset);
+  const [asioDriverName, setAsioDriverNameState] = useState(readStoredAsioDriverName);
+  const [asioGuitarChannel, setAsioGuitarChannelState] = useState(() =>
+    readStoredAsioChannel(ASIO_GUITAR_CHANNEL_STORAGE_KEY, DEFAULT_ASIO_GUITAR_CHANNEL)
+  );
+  const [asioMicChannel, setAsioMicChannelState] = useState(() =>
+    readStoredAsioChannel(ASIO_MIC_CHANNEL_STORAGE_KEY, DEFAULT_ASIO_MIC_CHANNEL)
+  );
   const recordingStartedAtRef = useRef(null);
   // Recording-tap-only native drum engine (see asio_engine.rs/
   // drum_engine.rs) — tracks whether the Rust side actually has a usable
@@ -204,7 +243,15 @@ export function useAudioEngine(pattern) {
   const connectGuitar = useCallback(
     async (deviceId) => {
       const { guitar } = ensureEngine();
-      await guitar.connectInput(deviceId); // wirft bei verweigerter/fehlender Berechtigung
+      // NativeGuitarEngine (Tauri) ignores `deviceId` and instead reads the
+      // ASIO driver/channel choice made via the settings dialog (see
+      // AsioSettingsDialog.jsx) — GuitarEngine.js (plain browser fallback)
+      // only ever sees the plain deviceId string it already expected.
+      await guitar.connectInput(
+        isTauriRuntime()
+          ? { driverName: asioDriverName, guitarChannel: asioGuitarChannel, micChannel: asioMicChannel }
+          : deviceId
+      ); // wirft bei verweigerter/fehlender Berechtigung
       setGuitarConnected(true);
       setSelectedGuitarDeviceId(deviceId ?? null);
       const devices = await guitar.listInputDevices(); // Labels erst nach erteilter Berechtigung verfügbar
@@ -233,7 +280,7 @@ export function useAudioEngine(pattern) {
         }
       }
     },
-    [ensureEngine, kitId]
+    [ensureEngine, kitId, asioDriverName, asioGuitarChannel, asioMicChannel]
   );
 
   // Awaits disconnectInput() before flipping `guitarConnected` — that keeps
@@ -337,6 +384,35 @@ export function useAudioEngine(pattern) {
       // localStorage unavailable - the value still works for this session
     }
   }, []);
+
+  // Single setter for all three ASIO settings — AsioSettingsDialog.jsx
+  // saves driver + both channels together in one go. Doesn't reconnect an
+  // already-open session; the dialog tells the user to disconnect/
+  // reconnect via the normal Guitar panel button to apply a change.
+  const setAsioSettings = useCallback(({ driverName, guitarChannel, micChannel }) => {
+    setAsioDriverNameState(driverName ?? null);
+    setAsioGuitarChannelState(guitarChannel);
+    setAsioMicChannelState(micChannel);
+    try {
+      if (driverName) {
+        localStorage.setItem(ASIO_DRIVER_STORAGE_KEY, driverName);
+      } else {
+        localStorage.removeItem(ASIO_DRIVER_STORAGE_KEY);
+      }
+      localStorage.setItem(ASIO_GUITAR_CHANNEL_STORAGE_KEY, String(guitarChannel));
+      localStorage.setItem(ASIO_MIC_CHANNEL_STORAGE_KEY, String(micChannel));
+    } catch {
+      // localStorage unavailable - the values still work for this session
+    }
+  }, []);
+
+  // Wraps NativeGuitarEngine.probeChannels — lets the ASIO settings dialog
+  // show how many input channels a driver has before the user commits to
+  // connecting. Only meaningful in Tauri; callers gate on isTauriRuntime().
+  const probeAsioChannels = useCallback((driverName) => {
+    const { guitar } = ensureEngine();
+    return guitar.probeChannels(driverName);
+  }, [ensureEngine]);
 
   // Native-only (NativeGuitarEngine) — the browser GuitarEngine has no
   // model concept, it's a fixed classic amp-sim. No-op there.
@@ -619,5 +695,10 @@ export function useAudioEngine(pattern) {
     setLoopRecording,
     syncOffsetMs,
     setSyncOffsetMs,
+    asioDriverName,
+    asioGuitarChannel,
+    asioMicChannel,
+    setAsioSettings,
+    probeAsioChannels,
   };
 }

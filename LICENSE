@@ -1,0 +1,37 @@
+Copyright (c) 2026 Hendrik. All rights reserved.
+
+This repository and the Pocket Studio application are proprietary and not
+licensed for redistribution, modification, or commercial use by third
+parties. The author may share built copies of the application (installer,
+PWA) with individual people for their own personal, non-commercial use;
+this does not grant any right to redistribute, sublicense, or sell the
+software or its source code.
+
+Third-party components bundled with this application keep their own
+original licenses:
+
+- Drum samples: see public/samples/LICENSE.md (mix of CC0 1.0 and
+  CC-BY 3.0 — CC-BY attribution requirement documented there and in-app
+  under "Datenschutz & Credits").
+- Neural Amp Modeler Core (src-tauri/vendor/NeuralAmpModelerCore): MIT
+  License, Copyright (c) 2023 Steven Atkinson — see that directory's own
+  LICENSE file.
+- npm and Cargo dependencies: each under its own published license (see
+  package.json / Cargo.toml and each package's own license file).
+- Steinberg ASIO SDK (pulled in transitively via the `asio-sys`/`cpal` Cargo
+  dependency, downloaded from steinberg.net at build time — its source is
+  not vendored in this repo, only compiled into the final app binary): NOT
+  a free-standing open license. As of October 2025 Steinberg dual-licenses
+  it as GPLv3 (requires this whole app to also be GPLv3/source-available)
+  or a proprietary license that is free of charge but requires signing
+  Steinberg's own "Proprietary ASIO SDK License Agreement" before
+  distributing any product built against the SDK. This has NOT been done
+  for Pocket Studio yet — unresolved, needs the app's owner to review
+  https://www.steinberg.net/developers/ and either sign that agreement or
+  choose the GPLv3 path before handing the Windows build to anyone beyond
+  personal use.
+
+This is a placeholder license reflecting the project's current status as
+a personal project shared informally with a small number of people. It is
+not a substitute for legal advice — if this project ever moves toward
+public/commercial distribution, review and replace this file accordingly.

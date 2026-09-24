@@ -184,7 +184,49 @@ pub fn list_device_names() -> Vec<String> {
     Asio::new().driver_names()
 }
 
-pub fn start(state: &AsioState, recordings_dir: PathBuf) -> Result<String, String> {
+/// Number of input/output channels a driver exposes, without starting an
+/// actual audio stream (no `prepare_input_stream`/`prepare_output_stream`,
+/// so no `ASIOCreateBuffers`) — lets the ASIO settings dialog show the
+/// user how many channels they have to pick a guitar/mic channel from
+/// before they've actually connected. Reliability of loading a driver
+/// twice in a row (once to probe, once moments later for the real
+/// `start()`) is unverified on non-Focusrite hardware; if this proves
+/// flaky in practice, the settings dialog falls back to a plain manual
+/// 0-7 channel range instead of calling this.
+#[derive(Serialize)]
+pub struct DriverChannelInfo {
+    #[serde(rename = "numInputs")]
+    pub num_inputs: usize,
+    #[serde(rename = "numOutputs")]
+    pub num_outputs: usize,
+}
+
+pub fn probe_driver_channels(driver_name: &str) -> Result<DriverChannelInfo, String> {
+    let asio = Asio::new();
+    let driver = asio.load_driver(driver_name).map_err(|e| e.to_string())?;
+    let channels = driver.channels().map_err(|e| e.to_string())?;
+    Ok(DriverChannelInfo {
+        num_inputs: channels.ins as usize,
+        num_outputs: channels.outs as usize,
+    })
+}
+
+/// `driver_name`: `None` reproduces the original hardcoded behavior
+/// (Focusrite-first, else first available driver) so the developer's own
+/// existing setup keeps working with zero configuration; `Some(name)`
+/// requires an exact match against `driver_names`, letting the ASIO
+/// settings dialog pick any interface, not just Focusrite. `guitar_in_ch`/
+/// `mic_in_ch` replace what used to be the `GUITAR_IN_CH`/`MIC_IN_CH`
+/// compile-time constants (still validated against the driver's actual
+/// input count below, now as a real runtime error instead of a silent
+/// dead callback).
+pub fn start(
+    state: &AsioState,
+    recordings_dir: PathBuf,
+    driver_name: Option<String>,
+    guitar_in_ch: usize,
+    mic_in_ch: usize,
+) -> Result<String, String> {
     let mut guard = state.0.lock().map_err(|e| e.to_string())?;
     if guard.is_some() {
         return Ok("already running".to_string());
@@ -192,21 +234,39 @@ pub fn start(state: &AsioState, recordings_dir: PathBuf) -> Result<String, Strin
 
     let asio = Asio::new();
     let driver_names = asio.driver_names();
-    let driver_name = driver_names
-        .iter()
-        .find(|n| {
-            let lower = n.to_lowercase();
-            lower.contains("focusrite") && lower.contains("usb")
-        })
-        .or_else(|| driver_names.iter().find(|n| n.to_lowercase().contains("focusrite")))
-        .cloned()
-        .ok_or_else(|| format!("no ASIO driver found among: {driver_names:?}"))?;
+    let driver_name = match driver_name {
+        Some(name) => driver_names
+            .iter()
+            .find(|n| **n == name)
+            .cloned()
+            .ok_or_else(|| format!("ASIO driver '{name}' not found among: {driver_names:?}"))?,
+        None => driver_names
+            .iter()
+            .find(|n| {
+                let lower = n.to_lowercase();
+                lower.contains("focusrite") && lower.contains("usb")
+            })
+            .or_else(|| driver_names.iter().find(|n| n.to_lowercase().contains("focusrite")))
+            .cloned()
+            .ok_or_else(|| format!("no ASIO driver found among: {driver_names:?}"))?,
+    };
 
     let driver = asio.load_driver(&driver_name).map_err(|e| e.to_string())?;
     let channels = driver.channels().map_err(|e| e.to_string())?;
     let num_in = channels.ins as usize;
     let num_out = channels.outs as usize;
     let sample_rate = driver.sample_rate().map_err(|e| e.to_string())?;
+
+    if guitar_in_ch >= num_in {
+        return Err(format!(
+            "guitar input channel {guitar_in_ch} is out of range — driver '{driver_name}' only has {num_in} input channel(s)"
+        ));
+    }
+    if mic_in_ch >= num_in {
+        return Err(format!(
+            "mic input channel {mic_in_ch} is out of range — driver '{driver_name}' only has {num_in} input channel(s)"
+        ));
+    }
 
     // See Phase 0 in the plan: this driver stays silent without this call,
     // despite every ASIO call otherwise reporting success.
@@ -339,14 +399,12 @@ pub fn start(state: &AsioState, recordings_dir: PathBuf) -> Result<String, Strin
         }
     });
 
-    // Guitar is on input channel 1 (confirmed repeatedly during Phase 0).
-    const GUITAR_IN_CH: usize = 1;
-    // The Scarlett Solo has exactly one other input (its dedicated mic
-    // preamp) — inferred by elimination on a 2-in interface, not directly
-    // confirmed by ear the way GUITAR_IN_CH was. If vocals come out on the
-    // wrong channel (or silent) on a different interface, this is the
-    // first thing to check.
-    const MIC_IN_CH: usize = 0;
+    // `guitar_in_ch`/`mic_in_ch` (formerly the hardcoded GUITAR_IN_CH/
+    // MIC_IN_CH constants tuned for the dev's own Scarlett Solo) are now
+    // the caller-supplied, already-bounds-checked runtime parameters,
+    // captured by value into the callback closure below exactly like
+    // `buffer_size`/`num_in`/`sample_rate` already are (plain Copy usize,
+    // no allocation/locking implications).
 
     // Owned by the callback closure directly (not shared/Mutex'd) — only
     // the ASIO callback thread ever touches these, serially, one block at
@@ -395,7 +453,7 @@ pub fn start(state: &AsioState, recordings_dir: PathBuf) -> Result<String, Strin
             (Some(i), Some(o)) => (i, o),
             _ => return,
         };
-        if GUITAR_IN_CH >= num_in {
+        if guitar_in_ch >= num_in {
             return;
         }
 
@@ -413,7 +471,7 @@ pub fn start(state: &AsioState, recordings_dir: PathBuf) -> Result<String, Strin
         let mic_gain = load_f32(&params_for_callback.mic_gain);
         let mic_reverb_wet = load_f32(&params_for_callback.mic_reverb_wet);
 
-        let in_ptr = input.buffer_infos[GUITAR_IN_CH].buffers[idx] as *const i32;
+        let in_ptr = input.buffer_infos[guitar_in_ch].buffers[idx] as *const i32;
         let in_slice = unsafe { std::slice::from_raw_parts(in_ptr, buffer_size) };
         for (dst, &src) in scratch_in.iter_mut().zip(in_slice) {
             *dst = (src as f32 / i32::MAX as f32) * input_gain;
@@ -425,8 +483,8 @@ pub fn start(state: &AsioState, recordings_dir: PathBuf) -> Result<String, Strin
         // voice needs). Skipped entirely while disabled, both to save the
         // (tiny) processing cost and so an unplugged/muted mic channel
         // can't leak hum/hiss into the mix by default.
-        if mic_enabled && MIC_IN_CH < num_in {
-            let mic_ptr = input.buffer_infos[MIC_IN_CH].buffers[idx] as *const i32;
+        if mic_enabled && mic_in_ch < num_in {
+            let mic_ptr = input.buffer_infos[mic_in_ch].buffers[idx] as *const i32;
             let mic_slice = unsafe { std::slice::from_raw_parts(mic_ptr, buffer_size) };
             for (dst, &src) in scratch_mic.iter_mut().zip(mic_slice) {
                 *dst = (src as f32 / i32::MAX as f32) * mic_gain;
@@ -760,7 +818,8 @@ pub fn set_monitoring_latency_ms(state: &AsioState, ms: f32) -> Result<(), Strin
     with_params(state, |p| store_f32(&p.monitoring_latency_ms, ms.max(0.0)))
 }
 
-/// Enables/disables the vocal mic input (see MIC_IN_CH in the callback).
+/// Enables/disables the vocal mic input (see `mic_in_ch` in the callback,
+/// set via `start()`'s parameter).
 /// Off by default so an unplugged/unused mic channel never leaks hum or
 /// hiss into the mix — same reasoning as tuner_enabled gating the pitch
 /// search.

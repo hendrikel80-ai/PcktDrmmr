@@ -46,6 +46,30 @@ historischer Kontext stehen gelassen, nicht als aktueller Stand).
   zu berühren. **Aktuell noch nicht committet, noch nicht auf einem
   echten Gerät getestet.**
 
+### Release-Prozess
+
+Verteilung läuft über GitHub Releases, nicht über rohe Commits/Pushes —
+ein `git push` auf `main` hat für Nutzer keinerlei Wirkung. Ablauf für
+eine neue Version:
+
+1. Version in `package.json` UND `src-tauri/tauri.conf.json` hochzählen
+   (beide müssen übereinstimmen).
+2. Neuen Abschnitt in `CHANGELOG.md` ergänzen (aus "Unveröffentlicht" wird
+   z. B. "[0.2.0] - 2026-09-22").
+3. Commit + Push wie gewohnt.
+4. Tag setzen und pushen: `git tag v0.2.0 && git push origin v0.2.0`
+   (Versionsnummer im Tag muss zu Schritt 1 passen).
+5. GitHub Actions (`.github/workflows/release.yml`) baut den Windows-
+   Installer automatisch und legt ihn als **Draft**-Release ab — für
+   niemanden außer dir sichtbar.
+6. Auf GitHub den Draft prüfen und erst dann manuell auf "Publish
+   release" klicken — das ist der Moment, ab dem Freunde die neue Version
+   herunterladen können. Bis dahin bleibt die vorherige Version die
+   einzige öffentlich sichtbare.
+
+Noch nicht getestet (kein Tag wurde bisher gepusht) — der erste echte
+Release-Versuch ist der eigentliche Test der Pipeline.
+
 ### Bekannte offene Punkte
 
 - **Produktions-Installer** (`cargo tauri build`) für die Desktop-App
@@ -60,6 +84,17 @@ historischer Kontext stehen gelassen, nicht als aktueller Stand).
   Tunnel-Dienst (z. B. Tailscale Funnel) wäre der schnellste Weg.
 - **Code-Signing** für einen künftigen Installer fehlt — Windows würde bei
   Freunden eine SmartScreen-Warnung zeigen.
+- **Steinberg ASIO SDK-Lizenz ungeklärt**: `asio-sys`/`cpal` laden die SDK
+  beim Build direkt von steinberg.net und kompilieren sie mit ein. Steinberg
+  verlangt für jedes Produkt, das gegen die SDK gebaut wird, entweder
+  GPLv3-Lizenzierung des eigenen Produkts oder eine unterschriebene (aber
+  kostenlose) "Proprietary ASIO SDK License Agreement" — noch nicht
+  eingeholt. Details siehe LICENSE-Datei im Repo-Root. Vor jeder Weitergabe
+  über den engsten persönlichen Kreis hinaus zu klären.
+- **Release-Workflow (`.github/workflows/release.yml`) noch nicht getestet**
+  — zurückgestellt (siehe "Release-Prozess" oben). Erster Test: einen
+  harmlosen Tag wie `v0.1.1-test` pushen und die Actions-Logs auf GitHub
+  prüfen, bevor die erste echte Version darüber ausgeliefert wird.
 
 ## Ziel
 

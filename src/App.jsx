@@ -12,6 +12,9 @@ import MicPanel from './components/MicPanel';
 import AmpPanel from './components/AmpPanel';
 import SoundLike from './components/SoundLike';
 import RecordingPanel from './components/RecordingPanel';
+import AsioSettingsDialog from './components/AsioSettingsDialog';
+import InfoDialog from './components/InfoDialog';
+import FeedbackButton from './components/FeedbackButton';
 import { isTauriRuntime } from './utils/platform';
 import logo from './assets/pocket-studio-logo.png';
 import drumkitIcon from './assets/icon-drumkit.png';
@@ -58,7 +61,13 @@ export default function App() {
     setLoopRecording,
     syncOffsetMs,
     setSyncOffsetMs,
+    asioDriverName,
+    asioGuitarChannel,
+    asioMicChannel,
+    setAsioSettings,
+    probeAsioChannels,
   } = useAudioEngine(pattern);
+  const [asioSettingsOpen, setAsioSettingsOpen] = useState(false);
 
   function handleBpmChange(bpm) {
     setPattern((p) => ({ ...p, bpm }));
@@ -93,6 +102,8 @@ export default function App() {
           onConnect={connectGuitar}
           onDisconnect={disconnectGuitar}
           onRefreshDevices={refreshGuitarDevices}
+          showAsioSettings={isTauriRuntime()}
+          onOpenAsioSettings={() => setAsioSettingsOpen(true)}
         />
 
         {isTauriRuntime() && (
@@ -122,6 +133,19 @@ export default function App() {
       </div>
 
       {isTauriRuntime() && <SoundLike />}
+
+      {asioSettingsOpen && (
+        <AsioSettingsDialog
+          onClose={() => setAsioSettingsOpen(false)}
+          drivers={guitarDevices}
+          onRefreshDrivers={refreshGuitarDevices}
+          currentDriverName={asioDriverName}
+          currentGuitarChannel={asioGuitarChannel}
+          currentMicChannel={asioMicChannel}
+          onProbeChannels={probeAsioChannels}
+          onSave={setAsioSettings}
+        />
+      )}
 
       <RecordingPanel
         supported={recordingSupported}
@@ -165,6 +189,10 @@ export default function App() {
 
       <footer className="app__footer">
         <p>Click steps to program them (Off → Ghost → Normal → Accent).</p>
+        <div className="app__footer-links">
+          <FeedbackButton platform="Desktop" />
+          <InfoDialog />
+        </div>
       </footer>
     </div>
   );

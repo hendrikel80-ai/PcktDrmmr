@@ -28,11 +28,27 @@ export class NativeGuitarEngine {
     return names.map((name) => ({ id: name, name }));
   }
 
-  async connectInput() {
-    // deviceId not used yet — the Rust side always picks the Focusrite
-    // USB ASIO driver (see asio_engine.rs); device selection is Phase 3.
-    await window.__TAURI__.core.invoke('start_passthrough');
+  // `driverName`: exact ASIO driver name to use, or `null`/undefined to
+  // let the Rust side fall back to its own Focusrite-first-else-first-
+  // driver default (see asio_engine.rs's start()) — reproduces the
+  // original hardcoded behavior for anyone who hasn't opened the ASIO
+  // settings dialog. `guitarChannel`/`micChannel` default to the same
+  // values (1/0) the old GUITAR_IN_CH/MIC_IN_CH constants used, so an
+  // existing Scarlett Solo setup keeps working unchanged.
+  async connectInput({ driverName, guitarChannel, micChannel } = {}) {
+    await window.__TAURI__.core.invoke('start_passthrough', {
+      driverName: driverName ?? null,
+      guitarChannel: guitarChannel ?? 1,
+      micChannel: micChannel ?? 0,
+    });
     this.connected = true;
+  }
+
+  // Channel count for a driver, without starting a stream — lets the ASIO
+  // settings dialog populate its channel pickers before connecting. See
+  // asio_engine.rs's probe_driver_channels doc for the reliability caveat.
+  async probeChannels(driverName) {
+    return window.__TAURI__.core.invoke('probe_asio_channels', { driverName });
   }
 
   // Must be awaited before the UI treats the guitar as disconnected — the

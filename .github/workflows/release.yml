@@ -1,0 +1,69 @@
+name: Release
+
+# Baut nur bei einem gepushten Tag wie "v0.2.0" — normale Commits/Pushes auf
+# main lösen NICHTS aus. Das Release landet außerdem als DRAFT auf GitHub
+# (siehe unten), sodass selbst ein fertig gebauter Installer erst dann für
+# andere sichtbar ist, wenn er im GitHub-Release manuell veröffentlicht wird.
+# Zwei bewusste Kontrollpunkte statt einem, exakt für den Zweck: "ich
+# entscheide aktiv, wann User das neueste Release bekommen".
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # NeuralAmpModelerCore ist ein Git-Submodule (.gitmodules) — ohne
+          # dies bleibt der Ordner leer und der Rust-Build schlägt fehl.
+          submodules: recursive
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install LLVM/Clang (asio-sys braucht es fuer bindgen)
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          version: '17'
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2.0.0" --locked
+
+      # Baut Frontend (via tauri.conf.json's beforeBuildCommand) + den
+      # nativen Windows-Installer (nsis/msi, siehe tauri.conf.json).
+      - name: Build Pocket Studio
+        run: cargo tauri build
+        working-directory: src-tauri
+
+      - name: Publish draft GitHub Release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: 'Pocket Studio ${{ github.ref_name }}'
+          draft: true
+          body: 'Siehe CHANGELOG.md fuer Details zu diesem Release.'
+          files: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/msi/*.msi

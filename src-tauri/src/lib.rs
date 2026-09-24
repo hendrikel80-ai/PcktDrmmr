@@ -41,14 +41,30 @@ fn list_devices() -> Vec<String> {
     asio_engine::list_device_names()
 }
 
+/// Channel count for a driver the user is considering, without starting
+/// an actual stream — lets the ASIO settings dialog populate its guitar/
+/// mic channel pickers before the user commits to connecting. See
+/// `asio_engine::probe_driver_channels`'s doc for the caveat on reliability
+/// of probing a driver right before actually starting it.
 #[tauri::command]
-fn start_passthrough(app: tauri::AppHandle, state: tauri::State<AsioState>) -> Result<String, String> {
+fn probe_asio_channels(driver_name: String) -> Result<asio_engine::DriverChannelInfo, String> {
+    asio_engine::probe_driver_channels(&driver_name)
+}
+
+#[tauri::command]
+fn start_passthrough(
+    app: tauri::AppHandle,
+    state: tauri::State<AsioState>,
+    driver_name: Option<String>,
+    guitar_channel: usize,
+    mic_channel: usize,
+) -> Result<String, String> {
     // Native (guitar+mic) recordings are written straight to disk as WAV
     // files (see asio_engine.rs's module doc) — Downloads is where the
     // browser's own drum recordings already land, so both halves of a
     // take end up in the same, expected place.
     let recordings_dir = app.path().download_dir().map_err(|e| e.to_string())?;
-    asio_engine::start(&state, recordings_dir)
+    asio_engine::start(&state, recordings_dir, driver_name, guitar_channel, mic_channel)
 }
 
 #[tauri::command]
@@ -215,6 +231,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             list_devices,
+            probe_asio_channels,
             start_passthrough,
             stop_passthrough,
             load_model,

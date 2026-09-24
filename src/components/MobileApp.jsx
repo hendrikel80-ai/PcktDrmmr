@@ -9,6 +9,8 @@ import KitSelector from './KitSelector';
 import PatternManager from './PatternManager';
 import MobileMicPanel from './MobileMicPanel';
 import RecordingPanel from './RecordingPanel';
+import InfoDialog from './InfoDialog';
+import FeedbackButton from './FeedbackButton';
 import logo from '../assets/pocket-studio-logo.png';
 import drumkitIcon from '../assets/icon-drumkit.png';
 
@@ -116,6 +118,10 @@ export default function MobileApp() {
 
       <footer className="app__footer">
         <p>Tap steps to program them (Off → Ghost → Normal → Accent).</p>
+        <div className="app__footer-links">
+          <FeedbackButton platform="Mobile" />
+          <InfoDialog />
+        </div>
       </footer>
     </div>
   );
