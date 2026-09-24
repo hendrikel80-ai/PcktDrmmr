@@ -9,6 +9,20 @@ function beatsPerBarFromTimeSignature(timeSignature) {
   return Number.isFinite(numerator) && numerator > 0 ? numerator : 4;
 }
 
+// Always two full bars of count-in, regardless of time signature — long
+// enough to settle into the tempo before playing, without dragging on for
+// odd meters with a high beat count.
+const COUNT_IN_BARS = 2;
+
+// True on any element that consumes arrow keys itself (typing a pattern
+// name, editing the BPM field, nudging the sync slider) — the global
+// Start/Stop-Recording shortcuts must not hijack those.
+function isTextEntryTarget(el) {
+  if (!el) return false;
+  const tag = el.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+}
+
 function formatElapsed(ms) {
   const totalSeconds = Math.floor(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);
@@ -52,16 +66,17 @@ export default function RecordingPanel({
   const startedAtRef = useRef(null);
 
   const beatsPerBar = beatsPerBarFromTimeSignature(timeSignature);
+  const totalCountInBeats = beatsPerBar * COUNT_IN_BARS;
   const beatMs = 60000 / (bpm || 120);
 
-  // One click per counted beat (accent on "1"), then wait beatMs and
-  // either advance to the next number or — after the last beat — end the
-  // count-in and start the actual recording.
+  // One click per counted beat (accent on beat 1 of each bar), then wait
+  // beatMs and either advance to the next number or — after the last beat
+  // of the second bar — end the count-in and start the actual recording.
   useEffect(() => {
     if (count === null) return undefined;
-    onCountInClick?.(count === 1);
+    onCountInClick?.((count - 1) % beatsPerBar === 0);
     const timer = setTimeout(() => {
-      if (count >= beatsPerBar) {
+      if (count >= totalCountInBeats) {
         setCount(null);
         onToggle();
       } else {
@@ -69,7 +84,7 @@ export default function RecordingPanel({
       }
     }, beatMs);
     return () => clearTimeout(timer);
-  }, [count, beatsPerBar, beatMs, onToggle, onCountInClick]);
+  }, [count, beatsPerBar, totalCountInBeats, beatMs, onToggle, onCountInClick]);
 
   // Real elapsed-time counter, not decorative: starts at 0 the moment
   // recording actually begins, ticks while it's running.
@@ -85,6 +100,30 @@ export default function RecordingPanel({
     }, 250);
     return () => clearInterval(interval);
   }, [isRecording]);
+
+  // Global Start/Stop-Recording shortcuts — Right Arrow starts (with the
+  // usual count-in), Left Arrow stops. Ignored while the user is typing
+  // somewhere (pattern name, BPM field, …) so normal cursor movement in
+  // those fields still works; ArrowRight also does nothing once already
+  // recording/counting in (it's a start action, not a toggle) and
+  // ArrowLeft does nothing while not recording.
+  useEffect(() => {
+    if (!supported) return undefined;
+    function handleKeyDown(e) {
+      if (isTextEntryTarget(document.activeElement)) return;
+      if (e.key === 'ArrowRight') {
+        if (isRecording || count !== null) return;
+        e.preventDefault();
+        setCount(1);
+      } else if (e.key === 'ArrowLeft') {
+        if (!isRecording) return;
+        e.preventDefault();
+        onToggle();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [supported, isRecording, count, onToggle]);
 
   if (!supported) {
     return (
@@ -158,7 +197,9 @@ export default function RecordingPanel({
           </button>
           <WaveBars active={isRecording} />
 
-          {counting && <span className="recording-panel__countdown">{count}</span>}
+          {counting && (
+            <span className="recording-panel__countdown">{((count - 1) % beatsPerBar) + 1}</span>
+          )}
 
           {isRecording && (
             <div className="recording-panel__timer">

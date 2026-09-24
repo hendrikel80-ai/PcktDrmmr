@@ -19,8 +19,13 @@ siehe dafür die Git-Historie.
 - "Send Feedback"-Button im Footer (Desktop und Mobile) — öffnet das
   E-Mail-Programm mit vorausgefülltem Betreff/Text (inkl. App-Version und
   Plattform) an `feedback.pocketstudio@gmail.com`.
+- Tastenkürzel für die Aufnahme: Pfeil-rechts startet (mit 2 Takten
+  Einzählen, unabhängig von der Taktart), Pfeil-links stoppt. Wird
+  ignoriert, während irgendwo Text eingegeben wird (Pattern-Name,
+  BPM-Feld, …).
 
 ### Geändert
+- Einzählen vor der Aufnahme zählt jetzt immer 2 Takte statt 1.
 - Touch-Ziele in der Mobile-Ansicht auf ≥44px vergrößert (Step-Zellen,
   BPM-Stepper, generische Buttons/Inputs).
 
