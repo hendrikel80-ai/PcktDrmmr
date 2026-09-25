@@ -12,6 +12,7 @@ import { MicEngine } from './MicEngine';
 import { Recorder } from './Recorder';
 import { Scheduler } from './Scheduler';
 import { DEFAULT_KIT_ID, getKit } from '../data/kits';
+import { audioBufferToMp3Blob } from './mp3Encode';
 
 function formatTimestamp(date = new Date()) {
   const pad = (n) => String(n).padStart(2, '0');
@@ -171,8 +172,20 @@ export function useMobileAudioEngine(pattern) {
         setIsPlaying(false);
         setCurrentStep(-1);
       }
-      const extension = blob.type.includes('ogg') ? 'ogg' : 'webm';
-      const url = URL.createObjectURL(blob);
+      // Re-encode the raw MediaRecorder blob (webm/opus) to MP3, same as
+      // the desktop pure-browser path in useAudioEngine.js — falls back to
+      // the original blob/extension only if decoding fails, so a take is
+      // never lost outright.
+      let finalBlob = blob;
+      let extension = blob.type.includes('ogg') ? 'ogg' : 'webm';
+      try {
+        const decoded = await audioCtx.decodeAudioData(await blob.arrayBuffer());
+        finalBlob = audioBufferToMp3Blob(decoded);
+        extension = 'mp3';
+      } catch (err) {
+        console.error('Converting the recording to MP3 failed, keeping the original take:', err);
+      }
+      const url = URL.createObjectURL(finalBlob);
       const filename = `pocket-studio-mobile-${formatTimestamp()}.${extension}`;
       setRecordings((prev) => [
         { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, url, filename, createdAt: Date.now() },

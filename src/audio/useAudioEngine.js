@@ -5,7 +5,7 @@ import { NativeGuitarEngine } from './NativeGuitarEngine';
 import { Recorder } from './Recorder';
 import { mergeRecordings } from './mergeRecording';
 import { computeLoopTrimSeconds, trimAudioBuffer } from './loopTrim';
-import { audioBufferToWavBlob } from './wavEncode';
+import { audioBufferToMp3Blob } from './mp3Encode';
 import { Scheduler, SCHEDULER_START_PREROLL_SECONDS } from './Scheduler';
 import { DEFAULT_KIT_ID, getKit } from '../data/kits';
 import { isTauriRuntime } from '../utils/platform';
@@ -452,21 +452,22 @@ export function useAudioEngine(pattern) {
           : null;
       recordingStartedAtRef.current = null;
 
-      // Loop mode: a compressed webm/opus blob can't be truncated by
-      // cutting bytes, so decode -> trim to the last full bar -> re-encode
-      // as WAV. Skipped entirely when loop mode is off — the raw take
-      // stays exactly as it always has.
+      // Always decode -> (optionally trim to the last full bar) -> encode
+      // as MP3, instead of handing back the raw compressed webm/opus blob
+      // MediaRecorder produced. A compressed blob can't be truncated by
+      // cutting bytes anyway, so loop mode already needed this decode step
+      // — it now just always runs, so every take (pure-browser mode) ends
+      // up MP3 too, not just loop-trimmed ones.
       let finalBlob = blob;
       let extension = blob.type.includes('ogg') ? 'ogg' : 'webm';
-      if (trimSeconds !== null) {
-        try {
-          const decoded = await audioCtx.decodeAudioData(await blob.arrayBuffer());
-          const trimmed = trimAudioBuffer(audioCtx, decoded, trimSeconds);
-          finalBlob = audioBufferToWavBlob(trimmed);
-          extension = 'wav';
-        } catch (err) {
-          console.error('Loop trim failed, keeping the untrimmed take:', err);
-        }
+      try {
+        const decoded = await audioCtx.decodeAudioData(await blob.arrayBuffer());
+        const bufferToEncode =
+          trimSeconds !== null ? trimAudioBuffer(audioCtx, decoded, trimSeconds) : decoded;
+        finalBlob = audioBufferToMp3Blob(bufferToEncode);
+        extension = 'mp3';
+      } catch (err) {
+        console.error('Converting the recording to MP3 failed, keeping the original take:', err);
       }
 
       const loopSuffix = trimSeconds !== null ? '-loop' : '';
@@ -496,12 +497,13 @@ export function useAudioEngine(pattern) {
       // not just the list entry) and a blob `url` (so it plays right in
       // the app instead of only offering a download).
       if (nativePath && nativeIncludesDrums) {
-        // The native WAV already IS the complete, guaranteed-in-sync mix
-        // (drums summed into the same buffer as guitar/mic/vocal — see
-        // asio_engine.rs) — just read it back for in-app playback.
+        // The native MP3 already IS the complete, guaranteed-in-sync mix
+        // (drums summed into the same buffer as guitar/mic/vocal, encoded
+        // straight to MP3 — see asio_engine.rs) — just read it back for
+        // in-app playback.
         try {
           const bytes = await window.__TAURI__.core.invoke('read_native_recording', { path: nativePath });
-          const mixBlob = new Blob([new Uint8Array(bytes)], { type: 'audio/wav' });
+          const mixBlob = new Blob([new Uint8Array(bytes)], { type: 'audio/mpeg' });
           const url = URL.createObjectURL(mixBlob);
           const filename = nativePath.split(/[\\/]/).pop();
           setRecordings((prev) => [
@@ -514,13 +516,13 @@ export function useAudioEngine(pattern) {
       } else if (nativePath && !nativeIncludesDrums) {
         // Fallback: native drums weren't available for this take (e.g. a
         // kit without full native sample coverage) — merge the browser
-        // drums recording with the native guitar/mic WAV in JS, same as
+        // drums recording with the native guitar/mic MP3 in JS, same as
         // before this change, then save the result to disk too so it's
         // just as deletable/playable as the native-drums case above.
         // Can take a moment on a longer take — don't block the UI on it.
         mergeRecordings(blob, nativePath, trimSeconds, syncOffsetMs, elapsedSeconds)
           .then(async (mergedBlob) => {
-            const mergedFilename = `pocket-studio-riff-${formatTimestamp()}${loopSuffix}-mix.wav`;
+            const mergedFilename = `pocket-studio-riff-${formatTimestamp()}${loopSuffix}-mix.mp3`;
             const url = URL.createObjectURL(mergedBlob);
             let savedPath = null;
             try {

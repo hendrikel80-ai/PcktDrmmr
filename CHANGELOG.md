@@ -28,6 +28,9 @@ siehe dafür die Git-Historie.
 - Einzählen vor der Aufnahme zählt jetzt immer 2 Takte statt 1.
 - Touch-Ziele in der Mobile-Ansicht auf ≥44px vergrößert (Step-Zellen,
   BPM-Stepper, generische Buttons/Inputs).
+- Aufnahmen werden jetzt als MP3 statt WAV gespeichert (nativer ASIO-Pfad,
+  Browser-Merge-Pfad und Mobile) — 192 kbps. Ältere WAV-Aufnahmen bleiben
+  in der Liste sichtbar/löschbar.
 
 ### Sicherheit
 - `kit_id` beim Laden eines Drum-Kits wird jetzt genauso validiert wie die

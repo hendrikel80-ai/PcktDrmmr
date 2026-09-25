@@ -18,6 +18,12 @@ original licenses:
   LICENSE file.
 - npm and Cargo dependencies: each under its own published license (see
   package.json / Cargo.toml and each package's own license file).
+- LAME MP3 encoder (compiled in via the `mp3lame-encoder`/`mp3lame-sys`
+  Cargo crates for native recordings, and via the `@breezystack/lamejs`
+  npm package for browser/mobile recordings): LGPL-2.1/LGPL-3.0. Used here
+  as a library dependency, not modified or redistributed as its own
+  standalone product — the common, low-risk way to use LGPL code. No
+  action needed beyond this notice for personal/informal distribution.
 - Steinberg ASIO SDK (pulled in transitively via the `asio-sys`/`cpal` Cargo
   dependency, downloaded from steinberg.net at build time — its source is
   not vendored in this repo, only compiled into the final app binary): NOT

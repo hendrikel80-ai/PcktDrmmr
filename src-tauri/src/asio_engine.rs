@@ -41,7 +41,9 @@ use crate::noise_gate::NoiseGate;
 use crate::reverb::Reverb;
 use crate::tuner::{self, TunerReading, TUNER_WINDOW_SIZE};
 use asio_sys::{Asio, CallbackInfo};
+use mp3lame_encoder::{Bitrate, Builder, FlushNoGap, MonoPcm, Quality};
 use serde::Serialize;
+use std::io::Write;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::mpsc;
@@ -347,7 +349,14 @@ pub fn start(
     let drum_pattern_for_callback = drum_pattern.clone();
 
     thread::spawn(move || {
-        let mut writer: Option<hound::WavWriter<std::io::BufWriter<std::fs::File>>> = None;
+        // Encodes straight to MP3 as batches arrive instead of writing a WAV
+        // and transcoding afterwards — LAME's `encode()` is designed to be
+        // fed chunks incrementally, so this avoids ever buffering a whole
+        // take in memory or doing a separate read-back-and-convert pass.
+        // 192kbps/best-quality mono, fine for a practice-recording guitar/
+        // mic take; not configurable from the UI (yet).
+        let mut writer: Option<(mp3lame_encoder::Encoder, std::io::BufWriter<std::fs::File>)> =
+            None;
         let mut current_path: Option<PathBuf> = None;
         for msg in guitar_audio_rx.iter() {
             match msg {
@@ -358,26 +367,42 @@ pub fn start(
                             .map(|d| d.as_millis())
                             .unwrap_or(0);
                         let path = recordings_dir
-                            .join(format!("pocket-studio-riff-{millis}-gitarre-mic.wav"));
-                        let spec = hound::WavSpec {
-                            channels: 1,
-                            sample_rate: sample_rate as u32,
-                            bits_per_sample: 32,
-                            sample_format: hound::SampleFormat::Float,
-                        };
-                        match hound::WavWriter::create(&path, spec) {
+                            .join(format!("pocket-studio-riff-{millis}-gitarre-mic.mp3"));
+                        let built = Builder::new()
+                            .ok_or_else(|| "failed to create LAME encoder builder".to_string())
+                            .and_then(|b| b.with_num_channels(1).map_err(|e| e.to_string()))
+                            .and_then(|b| {
+                                b.with_sample_rate(sample_rate as u32).map_err(|e| e.to_string())
+                            })
+                            .and_then(|b| b.with_brate(Bitrate::Kbps192).map_err(|e| e.to_string()))
+                            .and_then(|b| b.with_quality(Quality::Best).map_err(|e| e.to_string()))
+                            .and_then(|b| b.build().map_err(|e| e.to_string()));
+                        match built.and_then(|encoder| {
+                            std::fs::File::create(&path)
+                                .map(|f| (encoder, std::io::BufWriter::new(f)))
+                                .map_err(|e| e.to_string())
+                        }) {
                             Ok(w) => {
                                 writer = Some(w);
                                 current_path = Some(path);
                             }
                             Err(e) => {
-                                log::error!("failed to create native recording wav file: {e}");
+                                log::error!("failed to create native recording mp3 file: {e}");
                             }
                         }
                     }
-                    if let Some(w) = writer.as_mut() {
-                        for &s in &samples {
-                            let _ = w.write_sample(s);
+                    if let Some((encoder, file)) = writer.as_mut() {
+                        let mut mp3_buf = Vec::new();
+                        mp3_buf.reserve(mp3lame_encoder::max_required_buffer_size(samples.len()));
+                        match encoder.encode(MonoPcm(&samples[..]), mp3_buf.spare_capacity_mut()) {
+                            Ok(n) => {
+                                // Safety: `encode()` guarantees the first `n`
+                                // bytes of the buffer it was given are now
+                                // initialized.
+                                unsafe { mp3_buf.set_len(n) };
+                                let _ = file.write_all(&mp3_buf);
+                            }
+                            Err(e) => log::error!("mp3 encode failed: {e}"),
                         }
                     }
                     let mut buf = samples;
@@ -386,8 +411,16 @@ pub fn start(
                     let _ = guitar_free_tx_for_writer.send(buf);
                 }
                 GuitarAudioMsg::EndTake => {
-                    if let Some(w) = writer.take() {
-                        let _ = w.finalize();
+                    if let Some((mut encoder, mut file)) = writer.take() {
+                        let mut mp3_buf = Vec::new();
+                        mp3_buf.reserve(7200); // LAME's own minimum flush buffer size
+                        if let Ok(n) =
+                            encoder.flush::<FlushNoGap>(mp3_buf.spare_capacity_mut())
+                        {
+                            unsafe { mp3_buf.set_len(n) };
+                            let _ = file.write_all(&mp3_buf);
+                        }
+                        let _ = file.flush();
                     }
                     if let Some(path) = current_path.take() {
                         if let Ok(mut latest) = latest_native_recording_path_for_writer.lock() {

@@ -1,15 +1,15 @@
 // Mixes the browser's drum recording (webm/opus Blob, from Recorder.js)
-// together with the native guitar+mic WAV file (written straight to disk
-// by Rust — see asio_engine.rs) into a single new WAV file, entirely in
+// together with the native guitar+mic MP3 file (encoded straight to disk
+// by Rust — see asio_engine.rs) into a single new MP3 file, entirely in
 // the browser: both formats decode fine via Web Audio's decodeAudioData
-// (opus and WAV are both natively supported), so no server-side/native
+// (opus and MP3 are both natively supported), so no server-side/native
 // mixing code is needed. Assumes both recordings started at effectively
 // the same real moment (recorder.start() and
 // guitar.setRecordingActive(true) are called back-to-back synchronously
 // in useAudioEngine.js's toggleRecording) — good enough for a practice
 // tool, not claiming sample-accurate alignment.
 
-import { audioBufferToWavBlob } from './wavEncode';
+import { audioBufferToMp3Blob } from './mp3Encode';
 
 async function decodeToBuffer(audioCtx, arrayBuffer) {
   // decodeAudioData decodes into audioCtx's own sample rate regardless of
@@ -18,8 +18,8 @@ async function decodeToBuffer(audioCtx, arrayBuffer) {
   return audioCtx.decodeAudioData(arrayBuffer);
 }
 
-// `drumsBlob`: the webm/opus Blob from Recorder.js. `nativeWavPath`: the
-// filesystem path from NativeGuitarEngine.getLastRecordingPath().
+// `drumsBlob`: the webm/opus Blob from Recorder.js. `nativeRecordingPath`:
+// the filesystem path from NativeGuitarEngine.getLastRecordingPath().
 // `trimSeconds`: optional loop-trim point (see loopTrim.js) — when given,
 // both sources are cut to exactly this length instead of the natural
 // (usually slightly mismatched) longer of the two. `syncOffsetMs`: manual
@@ -29,11 +29,11 @@ async function decodeToBuffer(audioCtx, arrayBuffer) {
 // track (use when it's arriving early relative to the drums), negative
 // delays the drums track instead. `expectedNativeDurationSec`: the real
 // wall-clock duration the take actually lasted (measured independently in
-// useAudioEngine.js) — see the clock-drift comment below. Returns a WAV
+// useAudioEngine.js) — see the clock-drift comment below. Returns an MP3
 // Blob with both mixed together, or throws if either fails to decode.
 export async function mergeRecordings(
   drumsBlob,
-  nativeWavPath,
+  nativeRecordingPath,
   trimSeconds = null,
   syncOffsetMs = 0,
   expectedNativeDurationSec = null
@@ -41,7 +41,7 @@ export async function mergeRecordings(
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   try {
     const nativeBytes = await window.__TAURI__.core.invoke('read_native_recording', {
-      path: nativeWavPath,
+      path: nativeRecordingPath,
     });
 
     const [drumsBuffer, nativeBuffer] = await Promise.all([
@@ -90,7 +90,7 @@ export async function mergeRecordings(
     nativeSource.start(nativeStartSec);
 
     const rendered = await offlineCtx.startRendering();
-    return audioBufferToWavBlob(rendered);
+    return audioBufferToMp3Blob(rendered);
   } finally {
     await audioCtx.close();
   }
