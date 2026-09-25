@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DEFAULT_PATTERN } from './data/defaultPattern';
 import { resizePatternBars } from './data/resizePattern';
+import { loadPattern as loadSavedPattern } from './data/patternStorage';
 import { useAudioEngine } from './audio/useAudioEngine';
 import StepSequencer from './components/StepSequencer';
 import Transport from './components/Transport';
@@ -8,6 +9,7 @@ import PromptBar from './components/PromptBar';
 import LibraryBrowser from './components/LibraryBrowser';
 import KitSelector from './components/KitSelector';
 import PatternManager from './components/PatternManager';
+import ArrangementEditor from './components/ArrangementEditor';
 import GuitarPanel from './components/GuitarPanel';
 import MicPanel from './components/MicPanel';
 import AmpPanel from './components/AmpPanel';
@@ -78,6 +80,23 @@ export default function App() {
   } = useAudioEngine(pattern);
   const [asioSettingsOpen, setAsioSettingsOpen] = useState(false);
 
+  // Song/Arrangement Mode: an ordered list of {patternName, repeats}
+  // entries referencing already-saved patterns (see ArrangementEditor.jsx
+  // for the editing UI). Playback advancement lives here, not in
+  // useAudioEngine.js/Scheduler.js — it only needs to react to
+  // `currentStep` wrapping back to 0 (one full loop of the pattern
+  // currently loaded into the scheduler just completed) and then swap in
+  // the next entry's pattern via the same setPatternState the rest of
+  // this component already uses. Keeping it at this level avoids touching
+  // the real-time-adjacent Scheduler code at all.
+  const [arrangementEntries, setArrangementEntries] = useState([]);
+  const [loopArrangement, setLoopArrangement] = useState(false);
+  const [isArrangementPlaying, setIsArrangementPlaying] = useState(false);
+  const [arrangementIndex, setArrangementIndex] = useState(0);
+  const [arrangementLoopsDone, setArrangementLoopsDone] = useState(0);
+  const [arrangementError, setArrangementError] = useState('');
+  const prevStepRef = useRef(null);
+
   // Tracked setter — pushes the pre-edit state onto the undo stack before
   // applying the change. Used for actual grid edits, Clear, bar-count
   // changes, and loading a different pattern; NOT for BPM (see below).
@@ -108,6 +127,105 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [patternHistory]);
+
+  // Detects "the pattern currently loaded into the scheduler just
+  // completed one full loop" (currentStep wrapped back to 0, but wasn't
+  // already 0 the step before — i.e. not the very first step right after
+  // starting) and, only while a song is actually playing, decides whether
+  // to count another repeat or advance to the next entry. Deliberately
+  // depends on [currentStep] alone, not on arrangementIndex/Entries/etc —
+  // this only needs to react to step changes; it always reads the latest
+  // values of everything else via closure when it does run (same pattern
+  // as the undo keyboard-shortcut effect above).
+  useEffect(() => {
+    if (!isArrangementPlaying) {
+      prevStepRef.current = null;
+      return;
+    }
+    // null means "no step observed yet since the song (re)started" — the
+    // very first onStep(0) call after start() must NOT count as a wrap,
+    // or the first entry would immediately "complete" before playing a
+    // single beat. Only currentStep returning to 0 after having been
+    // something else counts as a genuine completed loop.
+    const prev = prevStepRef.current;
+    prevStepRef.current = currentStep;
+    const wrapped = prev !== null && currentStep === 0 && prev !== 0;
+    if (!wrapped) return;
+
+    const entry = arrangementEntries[arrangementIndex];
+    if (!entry) return;
+
+    const loopsDone = arrangementLoopsDone + 1;
+    if (loopsDone < entry.repeats) {
+      setArrangementLoopsDone(loopsDone);
+      return;
+    }
+
+    const atEnd = arrangementIndex + 1 >= arrangementEntries.length;
+    const nextIndex = atEnd ? (loopArrangement ? 0 : null) : arrangementIndex + 1;
+    if (nextIndex === null) {
+      stop();
+      return;
+    }
+    const nextPattern = loadSavedPattern(arrangementEntries[nextIndex].patternName);
+    if (!nextPattern) {
+      setArrangementError(`Pattern "${arrangementEntries[nextIndex].patternName}" not found — song stopped.`);
+      stop();
+      return;
+    }
+    setArrangementError('');
+    setPatternState(nextPattern);
+    setArrangementIndex(nextIndex);
+    setArrangementLoopsDone(0);
+  }, [currentStep]);
+
+  // Centralized reset whenever playback actually stops, regardless of
+  // cause (normal Transport Stop, the natural end of a non-looping song,
+  // or a missing-pattern error above) — so a stale isArrangementPlaying
+  // flag never survives past the audio actually stopping.
+  useEffect(() => {
+    if (!isPlaying) {
+      setIsArrangementPlaying(false);
+      setArrangementIndex(0);
+      setArrangementLoopsDone(0);
+    }
+  }, [isPlaying]);
+
+  // Set the instant handlePlaySong needs toggle() to actually start
+  // playback — NOT called directly from handlePlaySong itself. toggle()'s
+  // "start" branch reads patternRef.current (see useAudioEngine.js),
+  // which only reflects the just-set first entry's pattern AFTER React
+  // has re-rendered with it; calling toggle() synchronously in the same
+  // handler as setPatternState() would still see the *previous* pattern
+  // and briefly play the wrong section. Routing the actual start through
+  // this effect (which only runs after that re-render has committed)
+  // avoids the race entirely.
+  const [pendingSongStart, setPendingSongStart] = useState(false);
+  useEffect(() => {
+    if (!pendingSongStart) return;
+    setPendingSongStart(false);
+    toggle();
+  }, [pendingSongStart]);
+
+  function handlePlaySong() {
+    if (arrangementEntries.length === 0) return;
+    const firstPattern = loadSavedPattern(arrangementEntries[0].patternName);
+    if (!firstPattern) {
+      setArrangementError(`Pattern "${arrangementEntries[0].patternName}" not found.`);
+      return;
+    }
+    setArrangementError('');
+    prevStepRef.current = null;
+    setPatternState(firstPattern);
+    setArrangementIndex(0);
+    setArrangementLoopsDone(0);
+    setIsArrangementPlaying(true);
+    if (!isPlaying) setPendingSongStart(true);
+  }
+
+  function handleStopSong() {
+    if (isPlaying) toggle();
+  }
 
   // Bypasses the tracked setter on purpose — BPM changes fire rapidly
   // while the +/- button is held (see Transport.jsx), which would
@@ -237,6 +355,19 @@ export default function App() {
           onClear={handleClearPattern}
           canUndo={patternHistory.length > 0}
           onUndo={handleUndo}
+        />
+
+        <ArrangementEditor
+          entries={arrangementEntries}
+          onEntriesChange={setArrangementEntries}
+          loopArrangement={loopArrangement}
+          onLoopArrangementChange={setLoopArrangement}
+          onPlaySong={handlePlaySong}
+          onStopSong={handleStopSong}
+          isArrangementPlaying={isArrangementPlaying}
+          activeIndex={arrangementIndex}
+          activeLoopsDone={arrangementLoopsDone}
+          error={arrangementError}
         />
 
         <StepSequencer pattern={pattern} currentStep={currentStep} onChange={setPattern} />

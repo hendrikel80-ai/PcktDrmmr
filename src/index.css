@@ -765,6 +765,16 @@ input[type='range']::-moz-range-thumb {
   max-width: 220px;
 }
 
+.recording-panel__loop-playback {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
 .recording-panel__download:hover {
   text-decoration: underline;
 }
@@ -996,6 +1006,57 @@ input[type='range']::-moz-range-thumb {
 }
 
 .pattern-manager__name-input,
+.arrangement-editor {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.arrangement-editor__heading {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text);
+  font-family: 'Bebas Neue', 'Segoe UI', sans-serif;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.arrangement-editor__entries {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.arrangement-editor__entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 10px;
+}
+
+.arrangement-editor__entry--active {
+  border-color: var(--accent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.arrangement-editor__entry-name {
+  font-weight: 600;
+  min-width: 80px;
+}
+
+.arrangement-editor__repeats {
+  padding: 2px 4px;
+}
+
 .pattern-manager__select {
   background: var(--panel);
   color: var(--text);

@@ -15,6 +15,14 @@ function beatsPerBarFromTimeSignature(timeSignature) {
 // odd meters with a high beat count.
 const COUNT_IN_BARS = 2;
 
+// A take made with "Loop recording" on gets "-loop" in its filename (see
+// useAudioEngine.js) — used to default its playback to looping too,
+// otherwise the whole point of trimming it to a clean bar boundary is
+// lost the moment you actually listen to it.
+function isLoopTake(filename) {
+  return typeof filename === 'string' && filename.includes('-loop');
+}
+
 function formatElapsed(ms) {
   const totalSeconds = Math.floor(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);
@@ -56,6 +64,11 @@ export default function RecordingPanel({
   const [count, setCount] = useState(null); // null = no count-in active, otherwise 1..beatsPerBar
   const [elapsedMs, setElapsedMs] = useState(0);
   const startedAtRef = useRef(null);
+  // Per-recording playback-loop override (id -> boolean). Defaults to
+  // isLoopTake(filename) when a take has no explicit override yet, so
+  // "Loop recording" takes actually loop on play without extra clicks,
+  // while still letting the user flip it either way per take.
+  const [loopPlaybackOverrides, setLoopPlaybackOverrides] = useState({});
 
   const beatsPerBar = beatsPerBarFromTimeSignature(timeSignature);
   const totalCountInBeats = beatsPerBar * COUNT_IN_BARS;
@@ -264,9 +277,21 @@ export default function RecordingPanel({
 
       {recordings.length > 0 && (
         <ul className="recording-panel__list">
-          {recordings.map((r) => (
+          {recordings.map((r) => {
+            const loopPlayback = loopPlaybackOverrides[r.id] ?? isLoopTake(r.filename);
+            return (
             <li key={r.id} className="recording-panel__item">
-              <audio controls src={r.url} className="recording-panel__audio" />
+              <audio controls loop={loopPlayback} src={r.url} className="recording-panel__audio" />
+              <label className="recording-panel__loop-playback" title="Loop this recording during playback">
+                <input
+                  type="checkbox"
+                  checked={loopPlayback}
+                  onChange={(e) =>
+                    setLoopPlaybackOverrides((o) => ({ ...o, [r.id]: e.target.checked }))
+                  }
+                />
+                🔁
+              </label>
               <a href={r.url} download={r.filename} className="recording-panel__download">
                 <svg
                   viewBox="0 0 24 24"
@@ -295,7 +320,8 @@ export default function RecordingPanel({
                 🗑
               </button>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </div>

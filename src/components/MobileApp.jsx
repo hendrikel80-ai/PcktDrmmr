@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DEFAULT_PATTERN } from '../data/defaultPattern';
 import { resizePatternBars } from '../data/resizePattern';
+import { loadPattern as loadSavedPattern } from '../data/patternStorage';
 import { useMobileAudioEngine } from '../audio/useMobileAudioEngine';
 import { isTextEntryTarget } from '../utils/isTextEntryTarget';
 import StepSequencer from './StepSequencer';
@@ -9,6 +10,7 @@ import PromptBar from './PromptBar';
 import LibraryBrowser from './LibraryBrowser';
 import KitSelector from './KitSelector';
 import PatternManager from './PatternManager';
+import ArrangementEditor from './ArrangementEditor';
 import MobileMicPanel from './MobileMicPanel';
 import RecordingPanel from './RecordingPanel';
 import InfoDialog from './InfoDialog';
@@ -48,6 +50,18 @@ export default function MobileApp() {
     deleteRecording,
   } = useMobileAudioEngine(pattern);
 
+  // Song/Arrangement Mode — see App.jsx's identical block for the full
+  // reasoning (playback advancement lives at this level, reacting to
+  // currentStep wrapping back to 0, rather than inside
+  // useMobileAudioEngine.js/Scheduler.js).
+  const [arrangementEntries, setArrangementEntries] = useState([]);
+  const [loopArrangement, setLoopArrangement] = useState(false);
+  const [isArrangementPlaying, setIsArrangementPlaying] = useState(false);
+  const [arrangementIndex, setArrangementIndex] = useState(0);
+  const [arrangementLoopsDone, setArrangementLoopsDone] = useState(0);
+  const [arrangementError, setArrangementError] = useState('');
+  const prevStepRef = useRef(null);
+
   // Tracked setter — see App.jsx's identical pattern for why BPM changes
   // bypass it (setPatternState directly) while grid edits/Clear/bar-count
   // changes/pattern loads go through it.
@@ -78,6 +92,78 @@ export default function MobileApp() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [patternHistory]);
+
+  useEffect(() => {
+    if (!isArrangementPlaying) {
+      prevStepRef.current = null;
+      return;
+    }
+    const prev = prevStepRef.current;
+    prevStepRef.current = currentStep;
+    const wrapped = prev !== null && currentStep === 0 && prev !== 0;
+    if (!wrapped) return;
+
+    const entry = arrangementEntries[arrangementIndex];
+    if (!entry) return;
+
+    const loopsDone = arrangementLoopsDone + 1;
+    if (loopsDone < entry.repeats) {
+      setArrangementLoopsDone(loopsDone);
+      return;
+    }
+
+    const atEnd = arrangementIndex + 1 >= arrangementEntries.length;
+    const nextIndex = atEnd ? (loopArrangement ? 0 : null) : arrangementIndex + 1;
+    if (nextIndex === null) {
+      stop();
+      return;
+    }
+    const nextPattern = loadSavedPattern(arrangementEntries[nextIndex].patternName);
+    if (!nextPattern) {
+      setArrangementError(`Pattern "${arrangementEntries[nextIndex].patternName}" not found — song stopped.`);
+      stop();
+      return;
+    }
+    setArrangementError('');
+    setPatternState(nextPattern);
+    setArrangementIndex(nextIndex);
+    setArrangementLoopsDone(0);
+  }, [currentStep]);
+
+  useEffect(() => {
+    if (!isPlaying) {
+      setIsArrangementPlaying(false);
+      setArrangementIndex(0);
+      setArrangementLoopsDone(0);
+    }
+  }, [isPlaying]);
+
+  const [pendingSongStart, setPendingSongStart] = useState(false);
+  useEffect(() => {
+    if (!pendingSongStart) return;
+    setPendingSongStart(false);
+    toggle();
+  }, [pendingSongStart]);
+
+  function handlePlaySong() {
+    if (arrangementEntries.length === 0) return;
+    const firstPattern = loadSavedPattern(arrangementEntries[0].patternName);
+    if (!firstPattern) {
+      setArrangementError(`Pattern "${arrangementEntries[0].patternName}" not found.`);
+      return;
+    }
+    setArrangementError('');
+    prevStepRef.current = null;
+    setPatternState(firstPattern);
+    setArrangementIndex(0);
+    setArrangementLoopsDone(0);
+    setIsArrangementPlaying(true);
+    if (!isPlaying) setPendingSongStart(true);
+  }
+
+  function handleStopSong() {
+    if (isPlaying) toggle();
+  }
 
   function handleBpmChange(bpm) {
     setPatternState((p) => ({ ...p, bpm }));
@@ -159,6 +245,19 @@ export default function MobileApp() {
           onClear={handleClearPattern}
           canUndo={patternHistory.length > 0}
           onUndo={handleUndo}
+        />
+
+        <ArrangementEditor
+          entries={arrangementEntries}
+          onEntriesChange={setArrangementEntries}
+          loopArrangement={loopArrangement}
+          onLoopArrangementChange={setLoopArrangement}
+          onPlaySong={handlePlaySong}
+          onStopSong={handleStopSong}
+          isArrangementPlaying={isArrangementPlaying}
+          activeIndex={arrangementIndex}
+          activeLoopsDone={arrangementLoopsDone}
+          error={arrangementError}
         />
 
         <StepSequencer pattern={pattern} currentStep={currentStep} onChange={setPattern} />

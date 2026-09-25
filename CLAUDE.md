@@ -95,6 +95,16 @@ Release-Versuch ist der eigentliche Test der Pipeline.
   — zurückgestellt (siehe "Release-Prozess" oben). Erster Test: einen
   harmlosen Tag wie `v0.1.1-test` pushen und die Actions-Logs auf GitHub
   prüfen, bevor die erste echte Version darüber ausgeliefert wird.
+- **Overdub (auf eine bestehende Aufnahme drüberspielen) zurückgestellt**
+  — bewusst nicht umgesetzt, weil der Aufwand stark vom Umfang abhängt:
+  über den Browser-Audio-Bus (bestehende Aufnahme spielt beim Aufnehmen
+  mit, wird reingemischt) wäre in ca. einer Sitzung machbar, gilt aber nur
+  für den Merge-Fallback-/reinen-Browser-Pfad. Für den nativen ASIO-Pfad
+  (der Normalfall, da aktuell nur das Acoustic-Kit sichtbar ist) bräuchte
+  es eine neue Rust-Funktion, die eine MP3-Datei in Echtzeit in den
+  ASIO-Callback mischt — echtzeitkritischer Code, der nicht ohne echte
+  Hardware testbar ist. Vor dem Start: klären, ob nur Browser-Pfad reicht
+  oder ob nativer ASIO-Pfad ebenfalls gebraucht wird.
 
 ## Ziel
 

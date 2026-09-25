@@ -139,6 +139,13 @@ fn set_monitoring_latency_ms(state: tauri::State<AsioState>, ms: f32) -> Result<
     asio_engine::set_monitoring_latency_ms(&state, ms)
 }
 
+/// Called from JS right before set_guitar_recording_active(true) — see
+/// asio_engine.rs's set_drum_recording_enabled doc.
+#[tauri::command]
+fn set_drum_recording_enabled(state: tauri::State<AsioState>, enabled: bool) -> Result<(), String> {
+    asio_engine::set_drum_recording_enabled(&state, enabled)
+}
+
 #[tauri::command]
 fn get_last_native_recording_path(state: tauri::State<AsioState>) -> Result<Option<String>, String> {
     asio_engine::get_last_native_recording_path(&state)
@@ -247,6 +254,7 @@ pub fn run() {
             get_tuner_reading,
             set_guitar_recording_active,
             set_monitoring_latency_ms,
+            set_drum_recording_enabled,
             get_last_native_recording_path,
             set_mic_enabled,
             set_mic_gain,

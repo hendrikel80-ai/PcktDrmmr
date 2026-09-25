@@ -503,11 +503,48 @@ export function useAudioEngine(pattern) {
         // in-app playback.
         try {
           const bytes = await window.__TAURI__.core.invoke('read_native_recording', { path: nativePath });
-          const mixBlob = new Blob([new Uint8Array(bytes)], { type: 'audio/mpeg' });
+          let mp3Bytes = new Uint8Array(bytes);
+          let finalPath = nativePath;
+          let filename = nativePath.split(/[\\/]/).pop();
+
+          // The native writer (asio_engine.rs) has no concept of "loop
+          // mode" — it just captures the whole take — so loop-trimming has
+          // to happen here in JS, same as the browser-only paths below,
+          // before this ever reaches RecordingPanel.jsx. Without this, the
+          // "Loop recording" checkbox silently did nothing whenever native
+          // drums were active (the default/only visible kit), which is
+          // most of the time — a real bug, not just a missing UI touch.
+          if (trimSeconds !== null) {
+            try {
+              const decoded = await audioCtx.decodeAudioData(mp3Bytes.buffer);
+              const trimmed = trimAudioBuffer(audioCtx, decoded, trimSeconds);
+              const trimmedBlob = audioBufferToMp3Blob(trimmed);
+              const trimmedBytes = new Uint8Array(await trimmedBlob.arrayBuffer());
+              const dot = filename.lastIndexOf('.');
+              const trimmedFilename = `${filename.slice(0, dot)}-loop${filename.slice(dot)}`;
+              const savedPath = await window.__TAURI__.core.invoke('save_recording_bytes', trimmedBytes, {
+                headers: { 'x-filename': trimmedFilename },
+              });
+              // The untrimmed original is now redundant (superseded by the
+              // trimmed file above) — trashed, not hard-deleted, same
+              // safety net as the manual delete button.
+              try {
+                await window.__TAURI__.core.invoke('delete_recording_file', { path: nativePath });
+              } catch (err) {
+                console.error('Removing the untrimmed native take failed (harmless, just leaves an extra file):', err);
+              }
+              mp3Bytes = trimmedBytes;
+              finalPath = savedPath;
+              filename = trimmedFilename;
+            } catch (err) {
+              console.error('Loop-trimming the native recording failed, keeping the untrimmed take:', err);
+            }
+          }
+
+          const mixBlob = new Blob([mp3Bytes], { type: 'audio/mpeg' });
           const url = URL.createObjectURL(mixBlob);
-          const filename = nativePath.split(/[\\/]/).pop();
           setRecordings((prev) => [
-            { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, path: nativePath, url, filename, createdAt: Date.now() },
+            { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, path: finalPath, url, filename, createdAt: Date.now() },
             ...prev,
           ]);
         } catch (err) {
@@ -567,6 +604,16 @@ export function useAudioEngine(pattern) {
       // state is current right as this take starts is what the native
       // recording tap will actually mix in.
       nativeDrumsForTakeRef.current = nativeKitLoadedRef.current && nativePatternSetRef.current;
+      // Tells the Rust side whether to actually mix native drums into this
+      // take's recording tap (see NativeGuitarEngine.setDrumRecordingEnabled's
+      // doc) — without this, a take that just decided to skip native drums
+      // (nativeDrumsForTakeRef.current === false, about to fall back to the
+      // browser-drums merge below) would still get native drums doubled in
+      // by the Rust side, which has no per-take memory of this decision and
+      // just keeps rendering from whatever kit/pattern it last loaded
+      // successfully. Must land before setRecordingActive(true) below,
+      // same ordering requirement as setMonitoringLatencyMs.
+      await guitar.setDrumRecordingEnabled?.(nativeDrumsForTakeRef.current);
       // Only the native recording tap needs this: it deliberately doesn't
       // reimplement Scheduler.js's ±12ms timing humanize (see drum_engine.rs's
       // module doc), so leaving it on here would make the live monitoring

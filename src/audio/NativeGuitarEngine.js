@@ -191,6 +191,20 @@ export class NativeGuitarEngine {
     return window.__TAURI__.core.invoke('set_monitoring_latency_ms', { ms }).catch(console.error);
   }
 
+  // Called (awaited) right before setRecordingActive(true), alongside
+  // setMonitoringLatencyMs above — tells the native recording tap whether
+  // to mix its own native drum render into THIS take at all. `enabled`
+  // should be useAudioEngine.js's freshly-computed nativeDrumsForTakeRef
+  // value: if the native kit/pattern didn't (re)load successfully for
+  // this take, pass false so the tap stays silent on drums and only the
+  // JS-side browser-drums merge fallback contributes them — otherwise the
+  // Rust side would keep rendering from whatever kit/pattern it last
+  // successfully loaded regardless, doubling up with the fallback's own
+  // drums. See asio_engine.rs's set_drum_recording_enabled doc.
+  async setDrumRecordingEnabled(enabled) {
+    return window.__TAURI__.core.invoke('set_drum_recording_enabled', { enabled }).catch(console.error);
+  }
+
   // Call once after stopping a take. Finalizing the WAV file happens
   // asynchronously on the writer thread, not synchronously with
   // setRecordingActive(false), so this retries a few times with a short

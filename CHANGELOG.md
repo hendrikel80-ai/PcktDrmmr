@@ -32,6 +32,13 @@ siehe dafür die Git-Historie.
 - Presets für die Amp-Einstellungen (Gain/Bass/Mid/Treble/Reverb/Output/
   Delay) — speichern/laden/löschen, analog zum bestehenden
   Pattern-Manager.
+- Loop-Wiedergabe für Aufnahmen: ein 🔁-Häkchen pro Aufnahme in der Liste,
+  standardmäßig an für mit "Loop recording" gemachte Takes.
+- Song-/Arrangement-Modus: bereits gespeicherte Patterns zu einer
+  geordneten Playlist verketten (je mit eigener Wiederholungszahl,
+  umsortierbar), als eigener "▶ Play Song"-Ablauf mit Fortschrittsanzeige
+  pro Abschnitt, wahlweise als Endlosschleife. Wird wie Patterns/Presets
+  benannt gespeichert/geladen (`src/data/arrangementStorage.js`).
 
 ### Geändert
 - Einzählen vor der Aufnahme zählt jetzt immer 2 Takte statt 1.
@@ -40,6 +47,20 @@ siehe dafür die Git-Historie.
 - Aufnahmen werden jetzt als MP3 statt WAV gespeichert (nativer ASIO-Pfad,
   Browser-Merge-Pfad und Mobile) — 192 kbps. Ältere WAV-Aufnahmen bleiben
   in der Liste sichtbar/löschbar.
+
+### Behoben
+- "Loop recording" wurde beim nativen ASIO-Aufnahmepfad (Drums bereits
+  nativ gemischt — das ist der Normalfall beim aktuell einzigen sichtbaren
+  Kit) komplett ignoriert: die Checkbox hatte keine Wirkung, der Take
+  wurde nie auf einen sauberen Takt-Rand getrimmt. Betraf nur den
+  Merge-Fallback- und den reinen Browser-Pfad.
+- Schlagzeug in Aufnahmen doppelt: die native Aufnahme-Engine hat pro Take
+  keine Erinnerung daran, ob JS sich für diesen Take gegen native Drums
+  entschieden hat (Merge-Fallback) — sie rendert weiter aus dem zuletzt
+  erfolgreich geladenen Kit/Pattern, egal was JS vorhat. Neues Flag
+  (`drum_recording_enabled`, von JS pro Take gesetzt) schaltet das jetzt
+  sauber ab, sodass der Merge-Fallback nicht zusätzlich zu bereits
+  vorhandenen nativen Drums noch die Browser-Drums obendrauf mischt.
 
 ### Sicherheit
 - `kit_id` beim Laden eines Drum-Kits wird jetzt genauso validiert wie die

@@ -103,6 +103,18 @@ pub struct GuitarParams {
     delay_wet: AtomicU32,
     tuner_enabled: AtomicBool,
     recording_active: AtomicBool,
+    // Per-take override, set by JS right before setRecordingActive(true)
+    // (see useAudioEngine.js's toggleRecording): whether the native
+    // recording tap should mix native drums in for THIS take at all.
+    // Defaults true (preserves existing behavior when JS never touches
+    // it). JS sets it false whenever it has decided to fall back to
+    // merging in the browser's own drum render instead (e.g. the native
+    // kit/pattern failed to (re)load for this specific take) — without
+    // this, drum_kit/drum_pattern below stay populated from whatever the
+    // last *successful* load was, so the callback would otherwise keep
+    // rendering native drums into the tap regardless, doubling up with
+    // the browser-rendered drums the merge path adds on top.
+    drum_recording_enabled: AtomicBool,
     mic_enabled: AtomicBool,
     mic_gain: AtomicU32,
     mic_reverb_wet: AtomicU32,
@@ -137,6 +149,7 @@ impl GuitarParams {
             delay_wet: AtomicU32::new(0.3f32.to_bits()),
             tuner_enabled: AtomicBool::new(false),
             recording_active: AtomicBool::new(false),
+            drum_recording_enabled: AtomicBool::new(true),
             mic_enabled: AtomicBool::new(false),
             mic_gain: AtomicU32::new(1.0f32.to_bits()),
             mic_reverb_wet: AtomicU32::new(0.15f32.to_bits()),
@@ -500,6 +513,7 @@ pub fn start(
         let delay_wet = load_f32(&params_for_callback.delay_wet);
         let tuner_enabled = params_for_callback.tuner_enabled.load(Ordering::Relaxed);
         let recording_active = params_for_callback.recording_active.load(Ordering::Relaxed);
+        let drum_recording_enabled = params_for_callback.drum_recording_enabled.load(Ordering::Relaxed);
         let mic_enabled = params_for_callback.mic_enabled.load(Ordering::Relaxed);
         let mic_gain = load_f32(&params_for_callback.mic_gain);
         let mic_reverb_wet = load_f32(&params_for_callback.mic_reverb_wet);
@@ -638,13 +652,16 @@ pub fn start(
                 drum_engine.reset_take(delay_samples);
             }
             scratch_drums.iter_mut().for_each(|s| *s = 0.0);
-            {
+            if drum_recording_enabled {
                 let kit_guard = drum_kit_for_callback.lock().ok();
                 let pattern_guard = drum_pattern_for_callback.lock().ok();
                 let kit_ref = kit_guard.as_ref().and_then(|g| g.as_ref());
                 let pattern_ref = pattern_guard.as_ref().and_then(|g| g.as_ref());
                 drum_engine.render_block(&mut scratch_drums, buffer_size, kit_ref, pattern_ref);
             }
+            // else: scratch_drums stays all-zero (cleared above) — this
+            // take is relying on the JS-side merge/browser-drums fallback
+            // instead, see drum_recording_enabled's doc.
 
             if guitar_chunk.is_none() {
                 guitar_chunk = guitar_free_rx.try_recv().ok();
@@ -840,6 +857,14 @@ pub fn get_tuner_reading(state: &AsioState) -> Result<Option<TunerReading>, Stri
 /// start()/stop() calls.
 pub fn set_recording_active(state: &AsioState, active: bool) -> Result<(), String> {
     with_params(state, |p| p.recording_active.store(active, Ordering::Relaxed))
+}
+
+/// Sets whether the native recording tap should mix native drums in for
+/// the *next* take (see GuitarParams::drum_recording_enabled's doc).
+/// Called from the JS side right before set_recording_active(true), same
+/// ordering requirement as set_monitoring_latency_ms below.
+pub fn set_drum_recording_enabled(state: &AsioState, enabled: bool) -> Result<(), String> {
+    with_params(state, |p| p.drum_recording_enabled.store(enabled, Ordering::Relaxed))
 }
 
 /// Stores the current browser-monitoring latency estimate (ms), read once
