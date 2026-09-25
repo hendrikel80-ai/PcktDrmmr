@@ -23,6 +23,14 @@ function isLoopTake(filename) {
   return typeof filename === 'string' && filename.includes('-loop');
 }
 
+// The editable part of a recording's name — the extension is always kept
+// (see useAudioEngine.js's renameRecording), so only the base name is
+// shown/edited here.
+function baseName(filename) {
+  const dotIndex = filename.lastIndexOf('.');
+  return dotIndex >= 0 ? filename.slice(0, dotIndex) : filename;
+}
+
 function formatElapsed(ms) {
   const totalSeconds = Math.floor(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);
@@ -56,6 +64,8 @@ export default function RecordingPanel({
   onToggle,
   onCountInClick,
   onDelete,
+  onRename,
+  onArchive,
   loopEnabled,
   onLoopEnabledChange,
   syncOffsetMs,
@@ -69,6 +79,15 @@ export default function RecordingPanel({
   // "Loop recording" takes actually loop on play without extra clicks,
   // while still letting the user flip it either way per take.
   const [loopPlaybackOverrides, setLoopPlaybackOverrides] = useState({});
+  // Inline rename of one recording at a time (no native prompt() —
+  // unreliable inside Tauri's webview), keyed by id since the list renders
+  // every recording at once, unlike a single-selection dropdown.
+  const [renamingId, setRenamingId] = useState(null);
+  const [renameText, setRenameText] = useState('');
+  const [renameError, setRenameError] = useState('');
+  // Archived recordings stay in the `recordings` prop, just hidden here by
+  // default — this toggles a separate view to bring one back.
+  const [showArchived, setShowArchived] = useState(false);
 
   const beatsPerBar = beatsPerBarFromTimeSignature(timeSignature);
   const totalCountInBeats = beatsPerBar * COUNT_IN_BARS;
@@ -145,6 +164,28 @@ export default function RecordingPanel({
     }
     if (count !== null) return; // count-in already running
     setCount(1);
+  }
+
+  function handleStartRename(r) {
+    setRenamingId(r.id);
+    setRenameText(baseName(r.filename));
+    setRenameError('');
+  }
+
+  function handleCancelRename() {
+    setRenamingId(null);
+    setRenameError('');
+  }
+
+  async function handleConfirmRename(e) {
+    e.preventDefault();
+    const result = await onRename(renamingId, renameText);
+    if (!result?.ok) {
+      setRenameError(result?.error || 'Renaming failed.');
+      return;
+    }
+    setRenamingId(null);
+    setRenameError('');
   }
 
   const counting = count !== null;
@@ -275,55 +316,180 @@ export default function RecordingPanel({
         </div>
       )}
 
-      {recordings.length > 0 && (
-        <ul className="recording-panel__list">
-          {recordings.map((r) => {
-            const loopPlayback = loopPlaybackOverrides[r.id] ?? isLoopTake(r.filename);
-            return (
-            <li key={r.id} className="recording-panel__item">
-              <audio controls loop={loopPlayback} src={r.url} className="recording-panel__audio" />
-              <label className="recording-panel__loop-playback" title="Loop this recording during playback">
-                <input
-                  type="checkbox"
-                  checked={loopPlayback}
-                  onChange={(e) =>
-                    setLoopPlaybackOverrides((o) => ({ ...o, [r.id]: e.target.checked }))
-                  }
-                />
-                🔁
-              </label>
-              <a href={r.url} download={r.filename} className="recording-panel__download">
-                <svg
-                  viewBox="0 0 24 24"
-                  width="13"
-                  height="13"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{ verticalAlign: '-2px', marginRight: '4px' }}
-                  aria-hidden="true"
-                >
-                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                  <polyline points="17 21 17 13 7 13 7 21" />
-                  <polyline points="7 3 7 8 15 8" />
-                </svg>
-                {r.filename}
-              </a>
-              <button
-                type="button"
-                className="recording-panel__delete"
-                onClick={() => onDelete(r.id)}
-                title={r.path ? 'Deletes the file from disk' : 'Remove from the list'}
-              >
-                🗑
-              </button>
-            </li>
-            );
-          })}
-        </ul>
-      )}
+      {(() => {
+        const visibleRecordings = recordings.filter((r) => !r.archived);
+        const archivedRecordings = recordings.filter((r) => r.archived);
+        return (
+          <>
+            {visibleRecordings.length > 0 && (
+              <ul className="recording-panel__list">
+                {visibleRecordings.map((r) => {
+                  const loopPlayback = loopPlaybackOverrides[r.id] ?? isLoopTake(r.filename);
+                  return (
+                    <li key={r.id} className="recording-panel__item">
+                      <audio controls loop={loopPlayback} src={r.url} className="recording-panel__audio" />
+                      <label className="recording-panel__loop-playback" title="Loop this recording during playback">
+                        <input
+                          type="checkbox"
+                          checked={loopPlayback}
+                          onChange={(e) =>
+                            setLoopPlaybackOverrides((o) => ({ ...o, [r.id]: e.target.checked }))
+                          }
+                        />
+                        <svg
+                          viewBox="0 0 24 24"
+                          width="13"
+                          height="13"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          <polyline points="17 1 21 5 17 9" />
+                          <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                          <polyline points="7 23 3 19 7 15" />
+                          <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+                        </svg>
+                      </label>
+
+                      {r.id === renamingId ? (
+                        <form className="recording-panel__rename-form" onSubmit={handleConfirmRename}>
+                          <input
+                            type="text"
+                            className="pattern-manager__name-input"
+                            value={renameText}
+                            onChange={(e) => setRenameText(e.target.value)}
+                            maxLength={80}
+                            autoFocus
+                          />
+                          <button type="submit" className="pattern-manager__save-btn" disabled={!renameText.trim()}>
+                            Save
+                          </button>
+                          <button type="button" className="pattern-manager__save-btn" onClick={handleCancelRename}>
+                            Cancel
+                          </button>
+                          {renameError && <span className="prompt-bar__error">{renameError}</span>}
+                        </form>
+                      ) : (
+                        <>
+                          <a href={r.url} download={r.filename} className="recording-panel__download">
+                            <svg
+                              viewBox="0 0 24 24"
+                              width="13"
+                              height="13"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              style={{ verticalAlign: '-2px', marginRight: '4px' }}
+                              aria-hidden="true"
+                            >
+                              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                              <polyline points="17 21 17 13 7 13 7 21" />
+                              <polyline points="7 3 7 8 15 8" />
+                            </svg>
+                            {r.filename}
+                          </a>
+                          {onRename && (
+                            <button
+                              type="button"
+                              className="recording-panel__delete"
+                              onClick={() => handleStartRename(r)}
+                              title="Rename"
+                            >
+                              <svg
+                                viewBox="0 0 24 24"
+                                width="13"
+                                height="13"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
+                              >
+                                <path d="M12 20h9" />
+                                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                              </svg>
+                            </button>
+                          )}
+                          {onArchive && (
+                            <button
+                              type="button"
+                              className="recording-panel__delete"
+                              onClick={() => onArchive(r.id, true)}
+                              title="Hide from this list without deleting the file"
+                            >
+                              <svg
+                                viewBox="0 0 24 24"
+                                width="13"
+                                height="13"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
+                              >
+                                <rect x="3" y="4" width="18" height="4" rx="1" />
+                                <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8" />
+                                <path d="M10 13h4" />
+                              </svg>
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="recording-panel__delete"
+                            onClick={() => onDelete(r.id)}
+                            title={r.path ? 'Deletes the file from disk' : 'Remove from the list'}
+                          >
+                            🗑
+                          </button>
+                        </>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            {onArchive && (archivedRecordings.length > 0 || showArchived) && (
+              <div className="recording-panel__archived">
+                <label className="guitar-panel__latency-toggle">
+                  <input
+                    type="checkbox"
+                    checked={showArchived}
+                    onChange={(e) => setShowArchived(e.target.checked)}
+                  />
+                  Show archived ({archivedRecordings.length})
+                </label>
+                {showArchived &&
+                  (archivedRecordings.length === 0 ? (
+                    <p className="instrument-card__hint">No archived recordings.</p>
+                  ) : (
+                    <ul className="recording-panel__archived-list">
+                      {archivedRecordings.map((r) => (
+                        <li key={r.id} className="recording-panel__archived-item">
+                          <span className="recording-panel__archived-name">{r.filename}</span>
+                          <button
+                            type="button"
+                            className="pattern-manager__load-btn"
+                            onClick={() => onArchive(r.id, false)}
+                          >
+                            Unarchive
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ))}
+              </div>
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 }

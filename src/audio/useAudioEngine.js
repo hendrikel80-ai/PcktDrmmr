@@ -73,12 +73,61 @@ function readStoredAsioChannel(key, fallback) {
   }
 }
 
+// Drum-bus volume (0..1), independent of the guitar/mic output_gain — see
+// the dedicated `drumGain` node inserted between HybridDrumEngine and
+// masterOut in ensureEngine() below. Persisted like the other hardware/mix
+// calibration values above, since it's a "how loud should the drums sit in
+// the mix" preference the player dials in once, not a per-take setting.
+const DRUM_VOLUME_STORAGE_KEY = 'pocket-studio:drum-volume';
+const DEFAULT_DRUM_VOLUME = 0.8;
+
+function readStoredDrumVolume() {
+  try {
+    const raw = localStorage.getItem(DRUM_VOLUME_STORAGE_KEY);
+    const parsed = raw === null ? DEFAULT_DRUM_VOLUME : Number(raw);
+    return Number.isFinite(parsed) ? Math.min(1, Math.max(0, parsed)) : DEFAULT_DRUM_VOLUME;
+  } catch {
+    return DEFAULT_DRUM_VOLUME;
+  }
+}
+
+// Which recordings are archived (hidden from RecordingPanel.jsx's main
+// list, but never deleted) — keyed by filename, not by the `id` field on a
+// recording entry, since `id` is regenerated every session, while filename
+// is the one thing that survives a restart. A rename (see renameRecording
+// below) moves an archived entry's key from its old filename to the new
+// one so archiving doesn't silently reset.
+const ARCHIVED_RECORDINGS_STORAGE_KEY = 'pocket-studio:archived-recordings';
+
+function readArchivedRecordingFilenames() {
+  try {
+    const raw = localStorage.getItem(ARCHIVED_RECORDINGS_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(parsed) ? parsed : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeArchivedRecordingFilenames(set) {
+  try {
+    localStorage.setItem(ARCHIVED_RECORDINGS_STORAGE_KEY, JSON.stringify([...set]));
+  } catch {
+    // localStorage unavailable - archiving still works for this session
+  }
+}
+
 // Erzeugt AudioContext/Engine/Scheduler lazy beim ersten Play- oder
 // Kit-Klick, weil Browser AudioContext ohne vorherige User-Geste blockieren.
 export function useAudioEngine(pattern) {
   const engineRef = useRef(null);
   const patternRef = useRef(pattern);
   const recordingsRef = useRef([]);
+  const archivedFilenamesRef = useRef(readArchivedRecordingFilenames());
+  // Read inside ensureEngine (a useCallback with an empty dep array, so it
+  // can't close over the `drumVolume` state directly) to seed the drumGain
+  // node's initial value — kept in sync by setDrumVolume further down.
+  const drumVolumeRef = useRef(readStoredDrumVolume());
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentStep, setCurrentStep] = useState(-1);
   const [kitId, setKitId] = useState(DEFAULT_KIT_ID);
@@ -90,6 +139,7 @@ export function useAudioEngine(pattern) {
   const [isRecording, setIsRecording] = useState(false);
   const [recordings, setRecordings] = useState([]);
   const [loopRecording, setLoopRecording] = useState(false);
+  const [drumVolume, setDrumVolumeState] = useState(readStoredDrumVolume);
   const [syncOffsetMs, setSyncOffsetMsState] = useState(readStoredSyncOffset);
   const [asioDriverName, setAsioDriverNameState] = useState(readStoredAsioDriverName);
   const [asioGuitarChannel, setAsioGuitarChannelState] = useState(() =>
@@ -135,7 +185,16 @@ export function useAudioEngine(pattern) {
     masterOut.connect(recordingDestination);
     const recorder = new Recorder(recordingDestination.stream);
 
-    const engine = new HybridDrumEngine(audioCtx, getKit(DEFAULT_KIT_ID), masterOut);
+    // Dedicated gain stage for drums only, inserted before masterOut so the
+    // drum-volume slider (see setDrumVolume below) can't touch the guitar/
+    // mic signal that also shares masterOut. Initialized to the persisted
+    // value right away, not left at the AudioParam default of 1, so a
+    // previously dialed-in level actually takes effect on first playback.
+    const drumGain = audioCtx.createGain();
+    drumGain.gain.value = drumVolumeRef.current;
+    drumGain.connect(masterOut);
+
+    const engine = new HybridDrumEngine(audioCtx, getKit(DEFAULT_KIT_ID), drumGain);
     const scheduler = new Scheduler(audioCtx, engine);
     scheduler.onStep = (step) => setCurrentStep(step);
     // Inside the Tauri shell, drive the real native ASIO passthrough
@@ -148,7 +207,7 @@ export function useAudioEngine(pattern) {
     const guitar = isTauriRuntime()
       ? new NativeGuitarEngine()
       : new GuitarEngine(audioCtx, masterOut);
-    engineRef.current = { audioCtx, masterOut, engine, scheduler, guitar, recorder };
+    engineRef.current = { audioCtx, masterOut, drumGain, engine, scheduler, guitar, recorder };
     engine.loadSamples(DEFAULT_KIT_ID); // no-op falls keine echten Samples vorliegen
 
     // Debug-Zugriff in der Browser-Konsole (nur Dev-Build), z.B. für
@@ -349,6 +408,25 @@ export function useAudioEngine(pattern) {
     engineRef.current?.guitar.setMicReverb?.(amount);
   }, []);
 
+  // Drum-bus volume — independent of the guitar/mic setGuitarOutputGain
+  // above, see the dedicated drumGain node in ensureEngine(). Also pushed
+  // to the native recording tap (guitar.setDrumGain, a no-op via optional
+  // chaining on the plain browser GuitarEngine) so a native-drums take
+  // matches what was actually heard live, not a fixed default level.
+  const setDrumVolume = useCallback((value) => {
+    const clamped = Math.min(1, Math.max(0, value));
+    drumVolumeRef.current = clamped;
+    setDrumVolumeState(clamped);
+    try {
+      localStorage.setItem(DRUM_VOLUME_STORAGE_KEY, String(clamped));
+    } catch {
+      // localStorage unavailable - the value still works for this session
+    }
+    const { drumGain, guitar } = ensureEngine();
+    drumGain.gain.value = clamped;
+    guitar.setDrumGain?.(clamped);
+  }, [ensureEngine]);
+
   // Native-only (NativeGuitarEngine) — the browser GuitarEngine has no
   // pitch detection. Optional chaining keeps this a silent no-op there.
   const setGuitarTunerEnabled = useCallback((enabled) => {
@@ -544,7 +622,7 @@ export function useAudioEngine(pattern) {
           const mixBlob = new Blob([mp3Bytes], { type: 'audio/mpeg' });
           const url = URL.createObjectURL(mixBlob);
           setRecordings((prev) => [
-            { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, path: finalPath, url, filename, createdAt: Date.now() },
+            { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, path: finalPath, url, filename, createdAt: Date.now(), archived: false },
             ...prev,
           ]);
         } catch (err) {
@@ -572,7 +650,7 @@ export function useAudioEngine(pattern) {
               console.error('Saving the merged recording to disk failed:', err);
             }
             setRecordings((prev) => [
-              { id: `${Date.now()}-${Math.random().toString(36).slice(2)}-mix`, path: savedPath, url, filename: mergedFilename, createdAt: Date.now() },
+              { id: `${Date.now()}-${Math.random().toString(36).slice(2)}-mix`, path: savedPath, url, filename: mergedFilename, createdAt: Date.now(), archived: false },
               ...prev,
             ]);
           })
@@ -588,7 +666,7 @@ export function useAudioEngine(pattern) {
         const url = URL.createObjectURL(finalBlob);
         const filename = `pocket-studio-riff-${formatTimestamp()}${loopSuffix}.${extension}`;
         setRecordings((prev) => [
-          { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, url, filename, createdAt: Date.now() },
+          { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, url, filename, createdAt: Date.now(), archived: false },
           ...prev,
         ]);
       }
@@ -699,8 +777,74 @@ export function useAudioEngine(pattern) {
           console.error('Deleting the recording file failed:', err);
         });
       }
+      if (target?.filename && archivedFilenamesRef.current.has(target.filename)) {
+        archivedFilenamesRef.current.delete(target.filename);
+        writeArchivedRecordingFilenames(archivedFilenamesRef.current);
+      }
       return prev.filter((r) => r.id !== id);
     });
+  }, []);
+
+  // Renames a recording — the underlying file on disk when the entry has
+  // one (native/merge-fallback takes), or just the in-memory label for a
+  // pure-browser-mode take with no filesystem path (also updates its
+  // <a download> filename, see RecordingPanel.jsx). `newBaseName` is the
+  // name WITHOUT extension — the original extension is always kept, both
+  // so a renamed take stays picked up by list_recordings' `.mp3`/`.wav`
+  // filter after a restart, and so a stray typo can't turn a take into a
+  // file nothing recognizes as audio anymore.
+  const renameRecording = useCallback(async (id, newBaseName) => {
+    const target = recordingsRef.current.find((r) => r.id === id);
+    if (!target) return { ok: false, error: 'Recording not found.' };
+    const trimmedBase = newBaseName.trim();
+    if (!trimmedBase) return { ok: false, error: 'Name cannot be empty.' };
+    const dotIndex = target.filename.lastIndexOf('.');
+    const extension = dotIndex >= 0 ? target.filename.slice(dotIndex) : '';
+    const currentBase = dotIndex >= 0 ? target.filename.slice(0, dotIndex) : target.filename;
+    if (trimmedBase === currentBase) return { ok: true };
+    const newFilename = `${trimmedBase}${extension}`;
+
+    function applyRenameLocally(newPath) {
+      if (archivedFilenamesRef.current.has(target.filename)) {
+        archivedFilenamesRef.current.delete(target.filename);
+        archivedFilenamesRef.current.add(newFilename);
+        writeArchivedRecordingFilenames(archivedFilenamesRef.current);
+      }
+      setRecordings((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, path: newPath ?? r.path, filename: newFilename } : r))
+      );
+    }
+
+    if (target.path && isTauriRuntime()) {
+      try {
+        const newPath = await window.__TAURI__.core.invoke('rename_recording_file', {
+          path: target.path,
+          newFilename,
+        });
+        applyRenameLocally(newPath);
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, error: String(err) };
+      }
+    }
+
+    applyRenameLocally(null);
+    return { ok: true };
+  }, []);
+
+  // Archives/unarchives a recording — hides it from RecordingPanel.jsx's
+  // main list without touching the file (see the ARCHIVED_RECORDINGS_
+  // STORAGE_KEY doc above for why this is keyed by filename, not id).
+  const setRecordingArchived = useCallback((id, archived) => {
+    setRecordings((prev) =>
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        if (archived) archivedFilenamesRef.current.add(r.filename);
+        else archivedFilenamesRef.current.delete(r.filename);
+        return { ...r, archived };
+      })
+    );
+    writeArchivedRecordingFilenames(archivedFilenamesRef.current);
   }, []);
 
   return {
@@ -740,8 +884,12 @@ export function useAudioEngine(pattern) {
     toggleRecording,
     playCountInClick,
     deleteRecording,
+    renameRecording,
+    setRecordingArchived,
     loopRecording,
     setLoopRecording,
+    drumVolume,
+    setDrumVolume,
     syncOffsetMs,
     setSyncOffsetMs,
     asioDriverName,

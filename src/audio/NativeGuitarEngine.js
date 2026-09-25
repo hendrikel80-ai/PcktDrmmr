@@ -205,6 +205,13 @@ export class NativeGuitarEngine {
     return window.__TAURI__.core.invoke('set_drum_recording_enabled', { enabled }).catch(console.error);
   }
 
+  // Keeps the native recording-tap drum engine's level in sync with the
+  // browser drum-bus gain (see useAudioEngine.js's drumGain node) so a
+  // native-drums recording matches what was actually heard live.
+  async setDrumGain(value) {
+    return window.__TAURI__.core.invoke('set_drum_gain', { value }).catch(console.error);
+  }
+
   // Call once after stopping a take. Finalizing the WAV file happens
   // asynchronously on the writer thread, not synchronously with
   // setRecordingActive(false), so this retries a few times with a short

@@ -146,6 +146,16 @@ fn set_drum_recording_enabled(state: tauri::State<AsioState>, enabled: bool) -> 
     asio_engine::set_drum_recording_enabled(&state, enabled)
 }
 
+/// Keeps the native recording-tap drum engine's output level in sync with
+/// the browser's own drum-bus volume slider (see useAudioEngine.js) — sent
+/// on every change, not just before recording starts, since the slider is
+/// also meant to affect live monitoring loudness expectations for the next
+/// take.
+#[tauri::command]
+fn set_drum_gain(state: tauri::State<AsioState>, value: f32) -> Result<(), String> {
+    asio_engine::set_drum_gain(&state, value)
+}
+
 #[tauri::command]
 fn get_last_native_recording_path(state: tauri::State<AsioState>) -> Result<Option<String>, String> {
     asio_engine::get_last_native_recording_path(&state)
@@ -220,6 +230,34 @@ fn save_recording_bytes(app: tauri::AppHandle, bytes: Vec<u8>, filename: String)
     Ok(path.to_string_lossy().to_string())
 }
 
+/// Renames a recording file in place within the Downloads folder —
+/// RecordingPanel.jsx's rename control. Confines `path` to Downloads and
+/// requires `new_filename` to be a bare filename (no path separators),
+/// same reasoning as save_recording_bytes/delete_recording_file above: a
+/// Tauri command is reachable by any script in the webview, so this can't
+/// just trust the frontend to only ever send safe values. Refuses to
+/// silently overwrite an existing file at the destination.
+#[tauri::command]
+fn rename_recording_file(app: tauri::AppHandle, path: String, new_filename: String) -> Result<String, String> {
+    let dir = app.path().download_dir().map_err(|e| e.to_string())?;
+    let canonical_dir = dir.canonicalize().map_err(|e| e.to_string())?;
+    let candidate = std::path::Path::new(&path).canonicalize().map_err(|e| e.to_string())?;
+    if !candidate.starts_with(&canonical_dir) {
+        return Err("path is outside the recordings directory".to_string());
+    }
+    let safe_name = std::path::Path::new(&new_filename)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .filter(|n| *n == new_filename)
+        .ok_or_else(|| "filename must not contain path separators".to_string())?;
+    let new_path = dir.join(safe_name);
+    if new_path.exists() {
+        return Err("a recording with that name already exists".to_string());
+    }
+    std::fs::rename(&candidate, &new_path).map_err(|e| e.to_string())?;
+    Ok(new_path.to_string_lossy().to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -255,12 +293,14 @@ pub fn run() {
             set_guitar_recording_active,
             set_monitoring_latency_ms,
             set_drum_recording_enabled,
+            set_drum_gain,
             get_last_native_recording_path,
             set_mic_enabled,
             set_mic_gain,
             set_mic_reverb,
             read_native_recording,
             delete_recording_file,
+            rename_recording_file,
             save_recording_bytes,
             load_drum_kit,
             set_drum_pattern

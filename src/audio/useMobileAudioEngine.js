@@ -21,6 +21,21 @@ function formatTimestamp(date = new Date()) {
   )}-${pad(date.getMinutes())}-${pad(date.getSeconds())}`;
 }
 
+// Same persisted drum-bus volume preference as the desktop useAudioEngine.js
+// — separate storage key since the two hooks/engines never share state.
+const DRUM_VOLUME_STORAGE_KEY = 'pocket-studio:mobile-drum-volume';
+const DEFAULT_DRUM_VOLUME = 0.8;
+
+function readStoredDrumVolume() {
+  try {
+    const raw = localStorage.getItem(DRUM_VOLUME_STORAGE_KEY);
+    const parsed = raw === null ? DEFAULT_DRUM_VOLUME : Number(raw);
+    return Number.isFinite(parsed) ? Math.min(1, Math.max(0, parsed)) : DEFAULT_DRUM_VOLUME;
+  } catch {
+    return DEFAULT_DRUM_VOLUME;
+  }
+}
+
 // Erzeugt AudioContext/Engine/Scheduler lazy beim ersten Play- oder
 // Kit-Klick, weil Browser AudioContext ohne vorherige User-Geste blockieren
 // (gleiche Begründung wie useAudioEngine.js).
@@ -28,6 +43,9 @@ export function useMobileAudioEngine(pattern) {
   const engineRef = useRef(null);
   const patternRef = useRef(pattern);
   const recordingsRef = useRef([]);
+  // Read inside ensureEngine (a useCallback with an empty dep array) to
+  // seed the drumGain node's initial value — see setDrumVolume below.
+  const drumVolumeRef = useRef(readStoredDrumVolume());
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentStep, setCurrentStep] = useState(-1);
   const [kitId, setKitId] = useState(DEFAULT_KIT_ID);
@@ -37,6 +55,7 @@ export function useMobileAudioEngine(pattern) {
   const [selectedMicDeviceId, setSelectedMicDeviceId] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordings, setRecordings] = useState([]);
+  const [drumVolume, setDrumVolumeState] = useState(readStoredDrumVolume);
 
   patternRef.current = pattern;
   recordingsRef.current = recordings;
@@ -67,12 +86,19 @@ export function useMobileAudioEngine(pattern) {
     recordingBus.connect(recordingDestination);
     const recorder = new Recorder(recordingDestination.stream);
 
-    const engine = new HybridDrumEngine(audioCtx, getKit(DEFAULT_KIT_ID), masterOut);
+    // Dedicated gain stage for drums only, same reasoning as the desktop
+    // useAudioEngine.js — separate from masterOut so a future non-drum
+    // source on this bus (there is none yet) couldn't be affected by it.
+    const drumGain = audioCtx.createGain();
+    drumGain.gain.value = drumVolumeRef.current;
+    drumGain.connect(masterOut);
+
+    const engine = new HybridDrumEngine(audioCtx, getKit(DEFAULT_KIT_ID), drumGain);
     const scheduler = new Scheduler(audioCtx, engine);
     scheduler.onStep = (step) => setCurrentStep(step);
 
     const mic = new MicEngine(audioCtx, recordingBus);
-    engineRef.current = { audioCtx, masterOut, recordingBus, engine, scheduler, mic, recorder };
+    engineRef.current = { audioCtx, masterOut, drumGain, recordingBus, engine, scheduler, mic, recorder };
     engine.loadSamples(DEFAULT_KIT_ID);
 
     if (import.meta.env.DEV) {
@@ -188,7 +214,7 @@ export function useMobileAudioEngine(pattern) {
       const url = URL.createObjectURL(finalBlob);
       const filename = `pocket-studio-mobile-${formatTimestamp()}.${extension}`;
       setRecordings((prev) => [
-        { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, url, filename, createdAt: Date.now() },
+        { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, url, filename, createdAt: Date.now(), archived: false },
         ...prev,
       ]);
     } else {
@@ -229,12 +255,47 @@ export function useMobileAudioEngine(pattern) {
     [ensureEngine]
   );
 
+  const setDrumVolume = useCallback((value) => {
+    const clamped = Math.min(1, Math.max(0, value));
+    drumVolumeRef.current = clamped;
+    setDrumVolumeState(clamped);
+    try {
+      localStorage.setItem(DRUM_VOLUME_STORAGE_KEY, String(clamped));
+    } catch {
+      // localStorage unavailable - the value still works for this session
+    }
+    const { drumGain } = ensureEngine();
+    drumGain.gain.value = clamped;
+  }, [ensureEngine]);
+
   const deleteRecording = useCallback((id) => {
     setRecordings((prev) => {
       const target = prev.find((r) => r.id === id);
       if (target?.url) URL.revokeObjectURL(target.url);
       return prev.filter((r) => r.id !== id);
     });
+  }, []);
+
+  // Mobile recordings are always in-memory blobs (no filesystem path, no
+  // Tauri) and never survive a page reload anyway — so unlike the desktop
+  // useAudioEngine.js this just relabels the in-memory entry, no disk
+  // rename and no persisted archived-filenames store needed.
+  const renameRecording = useCallback(async (id, newBaseName) => {
+    const target = recordingsRef.current.find((r) => r.id === id);
+    if (!target) return { ok: false, error: 'Recording not found.' };
+    const trimmedBase = newBaseName.trim();
+    if (!trimmedBase) return { ok: false, error: 'Name cannot be empty.' };
+    const dotIndex = target.filename.lastIndexOf('.');
+    const extension = dotIndex >= 0 ? target.filename.slice(dotIndex) : '';
+    const currentBase = dotIndex >= 0 ? target.filename.slice(0, dotIndex) : target.filename;
+    if (trimmedBase === currentBase) return { ok: true };
+    const newFilename = `${trimmedBase}${extension}`;
+    setRecordings((prev) => prev.map((r) => (r.id === id ? { ...r, filename: newFilename } : r)));
+    return { ok: true };
+  }, []);
+
+  const setRecordingArchived = useCallback((id, archived) => {
+    setRecordings((prev) => prev.map((r) => (r.id === id ? { ...r, archived } : r)));
   }, []);
 
   return {
@@ -259,5 +320,9 @@ export function useMobileAudioEngine(pattern) {
     toggleRecording,
     playCountInClick,
     deleteRecording,
+    renameRecording,
+    setRecordingArchived,
+    drumVolume,
+    setDrumVolume,
   };
 }

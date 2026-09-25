@@ -779,6 +779,50 @@ input[type='range']::-moz-range-thumb {
   text-decoration: underline;
 }
 
+.recording-panel__rename-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.recording-panel__archived {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.recording-panel__archived-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.recording-panel__archived-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  opacity: 0.75;
+}
+
+.recording-panel__archived-name {
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .recording-panel__delete {
   background: transparent;
   color: var(--text-dim);
@@ -982,6 +1026,18 @@ input[type='range']::-moz-range-thumb {
   font-size: 0.85rem;
 }
 
+.transport__drum-volume {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-dim);
+}
+
+.transport__drum-volume input[type='range'] {
+  width: 90px;
+  accent-color: var(--gold);
+}
+
 .transport__style {
   color: var(--text-dim);
   font-size: 0.85rem;
@@ -1011,6 +1067,47 @@ input[type='range']::-moz-range-thumb {
   flex-direction: column;
   align-items: stretch;
   gap: 10px;
+}
+
+.section-frame,
+.arrangement-editor {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.section-frame__heading {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  color: var(--text);
+  font-family: 'Bebas Neue', 'Segoe UI', sans-serif;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.arrangement-editor__lane {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.arrangement-editor__lane-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+/* Every dropdown row inside Build a Song left-aligns and starts flush with
+   LibraryBrowser's own "Genre…" dropdown above it, instead of the centered
+   layout .guitar-panel__row normally uses for guitar/mic controls. */
+.arrangement-editor .guitar-panel__row {
+  justify-content: flex-start;
+  width: auto;
 }
 
 .arrangement-editor__heading {

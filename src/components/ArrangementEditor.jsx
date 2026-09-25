@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { listPatterns } from '../data/patternStorage';
+import { listPatterns, savePattern } from '../data/patternStorage';
 import {
   deleteArrangement,
   listArrangements,
@@ -33,6 +33,41 @@ export default function ArrangementEditor({
   const [selectedSongName, setSelectedSongName] = useState('');
   const [patternToAdd, setPatternToAdd] = useState('');
 
+  // Second "lane" for building a song directly from the curated Beat
+  // Library (see LibraryBrowser.jsx, same genre -> subgenre -> pattern
+  // cascade and /api/library fetch), alongside the "own saved patterns"
+  // lane above. A library pattern has no name of its own to reference by
+  // (unlike a saved pattern), so adding one first silently saves a copy
+  // into patternStorage under a generated, descriptive name — reusing the
+  // exact same {patternName, repeats} entry shape and playback lookup the
+  // rest of this component/App.jsx already rely on, instead of teaching
+  // the arrangement data model and playback code a second entry "kind".
+  const [libraryEntries, setLibraryEntries] = useState([]);
+  const [libraryStatus, setLibraryStatus] = useState('loading'); // loading | error | ready
+  const [libraryErrorMessage, setLibraryErrorMessage] = useState('');
+  const [libraryGenreSlug, setLibraryGenreSlug] = useState('');
+  const [librarySubgenreSlug, setLibrarySubgenreSlug] = useState('');
+  const [librarySelectedIndex, setLibrarySelectedIndex] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/library')
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        setLibraryEntries(Array.isArray(data.entries) ? data.entries : []);
+        setLibraryStatus('ready');
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setLibraryErrorMessage(err.message);
+        setLibraryStatus('error');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Read fresh on every render instead of caching in state — patterns are
   // saved/deleted over in PatternManager.jsx, a sibling component with no
   // shared store or change event, so a cached copy here would silently go
@@ -64,6 +99,31 @@ export default function ArrangementEditor({
   function handleAddEntry() {
     if (!effectivePatternToAdd) return;
     onEntriesChange([...entries, { patternName: effectivePatternToAdd, repeats: 1 }]);
+  }
+
+  function handleLibraryGenreChange(slug) {
+    setLibraryGenreSlug(slug);
+    setLibrarySubgenreSlug('');
+    setLibrarySelectedIndex('');
+  }
+
+  function handleLibrarySubgenreChange(slug) {
+    setLibrarySubgenreSlug(slug);
+    setLibrarySelectedIndex('');
+  }
+
+  function handleAddLibraryEntry() {
+    const entry = libraryEntries[Number(librarySelectedIndex)];
+    if (!entry) return;
+    // Unique-enough name: same genre/subgenre/BPM picked twice would
+    // otherwise silently overwrite the first saved copy (savePattern
+    // replaces by name) — a short random suffix rules that out without
+    // needing to check existing names first.
+    const suffix = Math.random().toString(36).slice(2, 6);
+    const name = `${entry.genreLabel} – ${entry.subgenreLabel} (${entry.pattern.bpm} BPM) #${suffix}`;
+    savePattern(name, entry.pattern);
+    onEntriesChange([...entries, { patternName: name, repeats: 1 }]);
+    setLibrarySelectedIndex('');
   }
 
   function handleRemoveEntry(index) {
@@ -105,33 +165,115 @@ export default function ArrangementEditor({
     refreshSaved();
   }
 
+  const libraryReady = libraryStatus === 'ready' && libraryEntries.length > 0;
+  const libraryGenres = libraryReady
+    ? [...new Map(libraryEntries.map((e) => [e.genreSlug, e.genreLabel])).entries()]
+    : [];
+  const librarySubgenres = libraryReady
+    ? [
+        ...new Map(
+          libraryEntries
+            .filter((e) => e.genreSlug === libraryGenreSlug)
+            .map((e) => [e.subgenreSlug, e.subgenreLabel])
+        ).entries(),
+      ]
+    : [];
+  const libraryPatterns = libraryReady
+    ? libraryEntries
+        .map((e, index) => ({ ...e, index }))
+        .filter((e) => e.genreSlug === libraryGenreSlug && e.subgenreSlug === librarySubgenreSlug)
+    : [];
+
   return (
     <div className="pattern-manager arrangement-editor">
-      <h3 className="arrangement-editor__heading">Song</h3>
+      <h3 className="arrangement-editor__heading">Build a Song</h3>
 
-      {patternNames.length === 0 ? (
-        <p className="instrument-card__hint">
-          Save a pattern in the Pattern Manager above first — a song is built from already-saved
-          patterns.
-        </p>
-      ) : (
-        <div className="guitar-panel__row">
-          <select
-            className="pattern-manager__select"
-            value={effectivePatternToAdd}
-            onChange={(e) => setPatternToAdd(e.target.value)}
-          >
-            {patternNames.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-          <button type="button" className="pattern-manager__load-btn" onClick={handleAddEntry}>
-            + Add to Song
-          </button>
-        </div>
-      )}
+      <div className="arrangement-editor__lane">
+        <span className="arrangement-editor__lane-label">From Library</span>
+        {libraryStatus === 'error' ? (
+          <div className="prompt-bar__error">Beat library unavailable: {libraryErrorMessage}</div>
+        ) : libraryReady ? (
+          <div className="guitar-panel__row">
+            <select
+              className="pattern-manager__select"
+              value={libraryGenreSlug}
+              onChange={(e) => handleLibraryGenreChange(e.target.value)}
+            >
+              <option value="">Genre…</option>
+              {libraryGenres.map(([slug, label]) => (
+                <option key={slug} value={slug}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <select
+              className="pattern-manager__select"
+              value={librarySubgenreSlug}
+              onChange={(e) => handleLibrarySubgenreChange(e.target.value)}
+              disabled={!libraryGenreSlug}
+            >
+              <option value="">Subgenre…</option>
+              {librarySubgenres.map(([slug, label]) => (
+                <option key={slug} value={slug}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <select
+              className="pattern-manager__select"
+              value={librarySelectedIndex}
+              onChange={(e) => setLibrarySelectedIndex(e.target.value)}
+              disabled={!librarySubgenreSlug}
+            >
+              <option value="">Pattern…</option>
+              {libraryPatterns.map((p) => (
+                <option key={p.index} value={p.index}>
+                  {p.pattern.bpm} BPM — {(p.pattern.style_description || 'pattern').slice(0, 60)}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="pattern-manager__load-btn"
+              onClick={handleAddLibraryEntry}
+              disabled={librarySelectedIndex === ''}
+            >
+              + Add to Song
+            </button>
+          </div>
+        ) : (
+          libraryStatus === 'ready' && (
+            <p className="instrument-card__hint">No beats in the library yet.</p>
+          )
+        )}
+      </div>
+
+      <div className="arrangement-editor__lane">
+        <span className="arrangement-editor__lane-label">From Own Patterns</span>
+        {patternNames.length === 0 ? (
+          <p className="instrument-card__hint">
+            Save a pattern in Build a Beat above first — a song is built from already-saved
+            patterns.
+          </p>
+        ) : (
+          <div className="guitar-panel__row">
+            <select
+              className="pattern-manager__select"
+              value={effectivePatternToAdd}
+              onChange={(e) => setPatternToAdd(e.target.value)}
+            >
+              {patternNames.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+            <button type="button" className="pattern-manager__load-btn" onClick={handleAddEntry}>
+              + Add to Song
+            </button>
+          </div>
+        )}
+      </div>
 
       {entries.length > 0 && (
         <ol className="arrangement-editor__entries">

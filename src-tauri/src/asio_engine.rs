@@ -115,6 +115,13 @@ pub struct GuitarParams {
     // rendering native drums into the tap regardless, doubling up with
     // the browser-rendered drums the merge path adds on top.
     drum_recording_enabled: AtomicBool,
+    // Scales the native drum engine's render before it's mixed into the
+    // recording tap (see the mix step below) — kept in sync with the
+    // browser's own drum-bus gain (see useAudioEngine.js's drumGain node)
+    // so a native-drums recording matches what the player actually heard
+    // live, instead of always recording at a fixed, possibly mismatched
+    // level.
+    drum_gain: AtomicU32,
     mic_enabled: AtomicBool,
     mic_gain: AtomicU32,
     mic_reverb_wet: AtomicU32,
@@ -150,6 +157,7 @@ impl GuitarParams {
             tuner_enabled: AtomicBool::new(false),
             recording_active: AtomicBool::new(false),
             drum_recording_enabled: AtomicBool::new(true),
+            drum_gain: AtomicU32::new(1.0f32.to_bits()),
             mic_enabled: AtomicBool::new(false),
             mic_gain: AtomicU32::new(1.0f32.to_bits()),
             mic_reverb_wet: AtomicU32::new(0.15f32.to_bits()),
@@ -514,6 +522,7 @@ pub fn start(
         let tuner_enabled = params_for_callback.tuner_enabled.load(Ordering::Relaxed);
         let recording_active = params_for_callback.recording_active.load(Ordering::Relaxed);
         let drum_recording_enabled = params_for_callback.drum_recording_enabled.load(Ordering::Relaxed);
+        let drum_gain = load_f32(&params_for_callback.drum_gain);
         let mic_enabled = params_for_callback.mic_enabled.load(Ordering::Relaxed);
         let mic_gain = load_f32(&params_for_callback.mic_gain);
         let mic_reverb_wet = load_f32(&params_for_callback.mic_reverb_wet);
@@ -658,6 +667,9 @@ pub fn start(
                 let kit_ref = kit_guard.as_ref().and_then(|g| g.as_ref());
                 let pattern_ref = pattern_guard.as_ref().and_then(|g| g.as_ref());
                 drum_engine.render_block(&mut scratch_drums, buffer_size, kit_ref, pattern_ref);
+                for s in scratch_drums.iter_mut() {
+                    *s *= drum_gain;
+                }
             }
             // else: scratch_drums stays all-zero (cleared above) — this
             // take is relying on the JS-side merge/browser-drums fallback
@@ -805,6 +817,10 @@ fn with_params<F: FnOnce(&GuitarParams)>(state: &AsioState, f: F) -> Result<(), 
 
 pub fn set_input_gain(state: &AsioState, value: f32) -> Result<(), String> {
     with_params(state, |p| store_f32(&p.input_gain, value))
+}
+
+pub fn set_drum_gain(state: &AsioState, value: f32) -> Result<(), String> {
+    with_params(state, |p| store_f32(&p.drum_gain, value))
 }
 
 pub fn set_output_gain(state: &AsioState, value: f32) -> Result<(), String> {

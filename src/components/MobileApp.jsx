@@ -48,6 +48,10 @@ export default function MobileApp() {
     toggleRecording,
     playCountInClick,
     deleteRecording,
+    renameRecording,
+    setRecordingArchived,
+    drumVolume,
+    setDrumVolume,
   } = useMobileAudioEngine(pattern);
 
   // Song/Arrangement Mode — see App.jsx's identical block for the full
@@ -215,6 +219,8 @@ export default function MobileApp() {
         onToggle={toggleRecording}
         onCountInClick={playCountInClick}
         onDelete={deleteRecording}
+        onRename={renameRecording}
+        onArchive={setRecordingArchived}
       />
 
       <section className="drums-section">
@@ -229,23 +235,16 @@ export default function MobileApp() {
         <PromptBar onGenerate={handleLoadPattern} />
         <LibraryBrowser onLoad={handleLoadPattern} />
 
-        <Transport
-          isPlaying={isPlaying}
-          onToggle={toggle}
-          bpm={pattern.bpm}
-          onBpmChange={handleBpmChange}
-          bars={pattern.bars}
-          onBarsChange={handleBarsChange}
-          styleDescription={pattern.style_description}
-        />
-
-        <PatternManager
-          pattern={pattern}
-          onLoad={handleLoadPattern}
-          onClear={handleClearPattern}
-          canUndo={patternHistory.length > 0}
-          onUndo={handleUndo}
-        />
+        <div className="section-frame">
+          <h3 className="section-frame__heading">Build a Beat</h3>
+          <PatternManager
+            pattern={pattern}
+            onLoad={handleLoadPattern}
+            onClear={handleClearPattern}
+            canUndo={patternHistory.length > 0}
+            onUndo={handleUndo}
+          />
+        </div>
 
         <ArrangementEditor
           entries={arrangementEntries}
@@ -258,6 +257,18 @@ export default function MobileApp() {
           activeIndex={arrangementIndex}
           activeLoopsDone={arrangementLoopsDone}
           error={arrangementError}
+        />
+
+        <Transport
+          isPlaying={isPlaying}
+          onToggle={toggle}
+          bpm={pattern.bpm}
+          onBpmChange={handleBpmChange}
+          bars={pattern.bars}
+          onBarsChange={handleBarsChange}
+          drumVolume={drumVolume}
+          onDrumVolumeChange={setDrumVolume}
+          styleDescription={pattern.style_description}
         />
 
         <StepSequencer pattern={pattern} currentStep={currentStep} onChange={setPattern} />
