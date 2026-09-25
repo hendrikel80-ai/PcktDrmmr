@@ -1,0 +1,68 @@
+{
+  "genre": "fills",
+  "subgenre": "quarter-bar-fills",
+  "tags": [
+    "one bar total:"
+  ],
+  "bpm": 115,
+  "time_signature": "4/4",
+  "bars": 1,
+  "style_description": "Quarter-bar fill groove: kick on beat 1 and the 'a' of beat 1 (step 4), snare on the '&' of beat 1 (step 3) and beat 2 (step 5), straight eighth-note ride through beats 1-3, then beat 4 explodes into a kick-and-snare unison hit on all four sixteenth-note subdivisions",
+  "pattern": {
+    "kick": [
+      110,
+      0,
+      0,
+      90,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      105,
+      100,
+      100,
+      105
+    ],
+    "snare": [
+      0,
+      0,
+      95,
+      0,
+      105,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      105,
+      100,
+      100,
+      110
+    ],
+    "ride": [
+      90,
+      0,
+      90,
+      0,
+      90,
+      0,
+      90,
+      0,
+      90,
+      0,
+      90,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "humanize": false
+}

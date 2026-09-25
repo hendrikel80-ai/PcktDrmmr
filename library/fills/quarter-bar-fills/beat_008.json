@@ -1,0 +1,68 @@
+{
+  "genre": "fills",
+  "subgenre": "quarter-bar-fills",
+  "tags": [
+    "one bar total:"
+  ],
+  "bpm": 115,
+  "time_signature": "4/4",
+  "bars": 1,
+  "style_description": "Quarter-bar fill groove: kick lands only on the off-beats of beats 1, 2, and 3 (the 'and' of each), snare backbeat on beat 2 only, open hihat accents on every quarter-note downbeat, and beat 4 features a single accented snare ghost fill on the 'and' with the rest of beat 4 silent",
+  "pattern": {
+    "kick": [
+      0,
+      0,
+      90,
+      0,
+      0,
+      0,
+      95,
+      0,
+      0,
+      0,
+      88,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "snare": [
+      0,
+      0,
+      0,
+      0,
+      105,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      110,
+      0
+    ],
+    "hihat_open": [
+      85,
+      0,
+      0,
+      0,
+      80,
+      0,
+      0,
+      0,
+      82,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "humanize": true
+}

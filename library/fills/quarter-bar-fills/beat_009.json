@@ -1,0 +1,68 @@
+{
+  "genre": "fills",
+  "subgenre": "quarter-bar-fills",
+  "tags": [
+    "one bar total:"
+  ],
+  "bpm": 115,
+  "time_signature": "4/4",
+  "bars": 1,
+  "style_description": "Quarter-bar fill groove: snare hits on beats 1, 2, and 3 with straight eighth-note hihat, kick completely silent for the first three beats, then a rapid sixteenth-note kick run fills all four sixteenth-note slots on beat 4",
+  "pattern": {
+    "kick": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      110,
+      95,
+      100,
+      105
+    ],
+    "snare": [
+      100,
+      0,
+      0,
+      0,
+      100,
+      0,
+      0,
+      0,
+      100,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "hihat_closed": [
+      85,
+      0,
+      85,
+      0,
+      85,
+      0,
+      85,
+      0,
+      85,
+      0,
+      85,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "humanize": false
+}

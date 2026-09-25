@@ -1,0 +1,68 @@
+{
+  "genre": "fills",
+  "subgenre": "quarter-bar-fills",
+  "tags": [
+    "one bar total:"
+  ],
+  "bpm": 115,
+  "time_signature": "4/4",
+  "bars": 1,
+  "style_description": "Quarter-bar fill pattern: sparse reggae-influenced groove for the first three beats (kick on beat 1, off-beat eighth-note hihats), then a sudden accented crash+kick hit on the downbeat of beat 4 with silence around it — a classic one-beat fill punctuation",
+  "pattern": {
+    "kick": [
+      110,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      115,
+      0,
+      0,
+      0
+    ],
+    "hihat_closed": [
+      0,
+      0,
+      65,
+      0,
+      0,
+      0,
+      65,
+      0,
+      0,
+      0,
+      65,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "crash": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      110,
+      0,
+      0,
+      0
+    ]
+  },
+  "humanize": false
+}

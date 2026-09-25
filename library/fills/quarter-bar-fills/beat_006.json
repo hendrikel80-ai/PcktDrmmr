@@ -1,0 +1,68 @@
+{
+  "genre": "fills",
+  "subgenre": "quarter-bar-fills",
+  "tags": [
+    "one bar total:"
+  ],
+  "bpm": 115,
+  "time_signature": "4/4",
+  "bars": 1,
+  "style_description": "Quarter-bar fill groove: kick anchors beat 1, snare backbeat on beat 2 preceded by a ghost note, sparse eighth-note ride through beats 1-3, then beat 4 opens with one big accented snare hit and falls completely silent — a dramatic quarter-bar fill landing",
+  "pattern": {
+    "kick": [
+      110,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "snare": [
+      0,
+      0,
+      0,
+      25,
+      100,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      127,
+      0,
+      0,
+      0
+    ],
+    "ride": [
+      70,
+      0,
+      70,
+      0,
+      70,
+      0,
+      70,
+      0,
+      70,
+      0,
+      70,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "humanize": false
+}
