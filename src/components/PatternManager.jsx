@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { deletePattern, listPatterns, loadPattern, savePattern, setPatternReference } from '../data/patternStorage';
 import { downloadPatternAsMidi } from '../audio/midiExport';
 
-export default function PatternManager({ pattern, onLoad, onClear }) {
+export default function PatternManager({ pattern, onLoad, onClear, canUndo, onUndo }) {
   const [name, setName] = useState('');
   const [saved, setSaved] = useState([]);
   const [selectedName, setSelectedName] = useState('');
@@ -82,6 +82,33 @@ export default function PatternManager({ pattern, onLoad, onClear }) {
           Save
         </button>
       </form>
+
+      {onUndo && (
+        <button
+          type="button"
+          className="pattern-manager__save-btn"
+          onClick={onUndo}
+          disabled={!canUndo}
+          title="Undo the last pattern edit (Ctrl+Z)"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="13"
+            height="13"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ verticalAlign: '-2px', marginRight: '4px' }}
+            aria-hidden="true"
+          >
+            <polyline points="9 14 4 9 9 4" />
+            <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+          </svg>
+          Undo
+        </button>
+      )}
 
       <button
         type="button"

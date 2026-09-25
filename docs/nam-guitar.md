@@ -1,13 +1,23 @@
 # Gitarre live via NAM (Neural Amp Modeler)
 
-> **Zurückgestellt** — NAM ist seit der Latenz-Diagnose weiter unten nicht
-> mehr der aktive Gitarren-Signalweg im Browser (siehe
-> `docs/guitar-ampsim.md` für den aktuellen Stand: ein klassischer
-> Amp-Simulator aus nativen Web-Audio-Nodes, ohne die hier beschriebene
-> Inferenz-Latenz). Dieses Dokument bleibt als Referenz und für eine
-> mögliche spätere Reaktivierung (native Desktop-App via Tauri) erhalten;
-> der NAM-Code selbst ist weiterhin in `GuitarEngine.js` vorhanden, aber
-> nicht mehr in die aktive Kette eingebunden.
+> **Aktueller Stand: NAM läuft nativ (Tauri-Desktop-App), nicht mehr im
+> Browser.** Der native Pfad (`src-tauri/src/nam_ffi.rs` +
+> `asio_engine.rs`) macht echte NAM-Inferenz über ASIO, **ohne** die unten
+> beschriebene Browser-Latenz-Problematik — Modell laden über den
+> "🎛 Load NAM Model (.nam)"-Button im Amp-Panel (nur sichtbar in der
+> Tauri-App, siehe `AmpPanel.jsx`/`GuitarPanel.jsx`). Das war der
+> ursprünglich als "mögliche spätere Option" skizzierte Plan hier unten —
+> ist inzwischen umgesetzt, siehe auch `docs/guitar-ampsim.md`s
+> "NAM als spätere Option (Tauri-Desktop) — inzwischen umgesetzt".
+>
+> Der **Browser-Pfad** (`GuitarEngine.js`, genutzt wenn Pocket Studio ohne
+> die Tauri-Shell läuft, z. B. reiner `npm run dev` oder die Mobile-App)
+> nutzt dagegen weiterhin **keinen** NAM, sondern einen klassischen
+> Amp-Simulator aus nativen Web-Audio-Nodes (siehe `docs/guitar-ampsim.md`)
+> — genau wegen der Latenz-Diagnose weiter unten. Der Rest dieses
+> Dokuments beschreibt diese historische Browser-NAM-Diagnose: der Grund,
+> warum der Browser-Pfad bis heute bei der Web-Audio-Lösung bleibt, nicht
+> den aktuellen nativen Desktop-Signalweg.
 
 Signalkette (historisch, siehe `src/audio/GuitarEngine.js`):
 
@@ -190,7 +200,10 @@ USB-3.x-Controller/-Hubs haben bekannte Latenzprobleme mit
 Audio-Interfaces, oft hilft ein Wechsel auf einen anderen Controller
 (z. B. ein direkt am Mainboard angebundener Port statt Hub/Frontpanel).
 
-**Finales Setup für latenzkritisches Live-Spiel:**
+**Historisches Interims-Setup, seit nativer NAM-Integration überholt** — der
+native Tauri/ASIO-Pfad (siehe Hinweis ganz oben) macht diesen Workaround
+inzwischen überflüssig; als Referenz stehen gelassen, falls der native
+Pfad mal nicht verfügbar ist:
 
 - **Gitarre/Amp-Ton:** Reaper über ASIO (Focusrite USB ASIO, kleine
   Puffergröße), FX-Kette komplett aus mitgelieferten Reaper-Bordmitteln

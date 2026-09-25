@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 
 const BPM_MIN = 40;
 const BPM_MAX = 300;
+const BARS_MIN = 1;
+const BARS_MAX = 8; // matches validatePattern.js's own bars bound
 const HOLD_INITIAL_DELAY_MS = 350;
 const HOLD_REPEAT_MS = 80;
 
@@ -9,7 +11,15 @@ function clampBpm(value) {
   return Math.min(BPM_MAX, Math.max(BPM_MIN, Math.round(value)));
 }
 
-export default function Transport({ isPlaying, onToggle, bpm, onBpmChange, styleDescription }) {
+export default function Transport({
+  isPlaying,
+  onToggle,
+  bpm,
+  onBpmChange,
+  bars,
+  onBarsChange,
+  styleDescription,
+}) {
   const [bpmText, setBpmText] = useState(String(bpm));
   // Holds the button's live target across an entire press-and-hold run —
   // `bpm` itself only updates once per React render, too slow to read
@@ -110,6 +120,31 @@ export default function Transport({ isPlaying, onToggle, bpm, onBpmChange, style
           +
         </button>
       </div>
+      {onBarsChange && (
+        <div className="transport__bpm" title="Number of bars in the current pattern">
+          <button
+            type="button"
+            className="transport__bpm-step"
+            onClick={() => onBarsChange(bars - 1)}
+            disabled={bars <= BARS_MIN}
+            aria-label="Remove a bar"
+          >
+            −
+          </button>
+          <span className="transport__bpm-unit">
+            {bars} {bars === 1 ? 'Bar' : 'Bars'}
+          </span>
+          <button
+            type="button"
+            className="transport__bpm-step"
+            onClick={() => onBarsChange(bars + 1)}
+            disabled={bars >= BARS_MAX}
+            aria-label="Add a bar"
+          >
+            +
+          </button>
+        </div>
+      )}
       {styleDescription && <div className="transport__style">{styleDescription}</div>}
     </div>
   );

@@ -23,6 +23,15 @@ siehe dafür die Git-Historie.
   Einzählen, unabhängig von der Taktart), Pfeil-links stoppt. Wird
   ignoriert, während irgendwo Text eingegeben wird (Pattern-Name,
   BPM-Feld, …).
+- Takte-Stepper in der Transport-Leiste — Pattern manuell auf bis zu 8
+  Takte erweitern/kürzen, statt nur über KI-Generierung oder Library
+  mehrtaktige Patterns zu bekommen.
+- Undo im Step-Sequencer (Button + Strg+Z) — für Step-Klicks, "Alles
+  löschen", Takte-Änderungen und Pattern-Laden; bewusst nicht für
+  BPM-Änderungen, sonst würde Halten des +/--Reglers den Verlauf fluten.
+- Presets für die Amp-Einstellungen (Gain/Bass/Mid/Treble/Reverb/Output/
+  Delay) — speichern/laden/löschen, analog zum bestehenden
+  Pattern-Manager.
 
 ### Geändert
 - Einzählen vor der Aufnahme zählt jetzt immer 2 Takte statt 1.

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { isTextEntryTarget } from '../utils/isTextEntryTarget';
 
 // Counts up musically (1, 2, 3, [4]) as a count-in instead of a plain
 // "get ready" countdown — the number of counted beats and their tempo
@@ -13,15 +14,6 @@ function beatsPerBarFromTimeSignature(timeSignature) {
 // enough to settle into the tempo before playing, without dragging on for
 // odd meters with a high beat count.
 const COUNT_IN_BARS = 2;
-
-// True on any element that consumes arrow keys itself (typing a pattern
-// name, editing the BPM field, nudging the sync slider) — the global
-// Start/Stop-Recording shortcuts must not hijack those.
-function isTextEntryTarget(el) {
-  if (!el) return false;
-  const tag = el.tagName;
-  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
-}
 
 function formatElapsed(ms) {
   const totalSeconds = Math.floor(ms / 1000);

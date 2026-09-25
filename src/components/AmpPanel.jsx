@@ -1,6 +1,18 @@
 import { useEffect, useState } from 'react';
 import ampIcon from '../assets/icon-amp.png';
 import { formatError } from '../utils/formatError';
+import { deleteAmpPreset, listAmpPresets, loadAmpPreset, saveAmpPreset } from '../data/ampPresetStorage';
+
+const DEFAULT_SETTINGS = {
+  gain: 1,
+  bass: 0,
+  mid: 0,
+  treble: 0,
+  reverb: 0.15,
+  output: 1,
+  delayEnabled: false,
+  delay: 0.3,
+};
 
 // Cents deviation -50..+50 mapped to a 0-100% position, so the pointer
 // sits exactly in the middle of the display at 0 cents.
@@ -50,12 +62,35 @@ export default function AmpPanel({
   modelInfo,
 }) {
   const [error, setError] = useState('');
-  const [delayEnabled, setDelayEnabledState] = useState(false);
   const [tunerEnabled, setTunerEnabledState] = useState(false);
+  // Controlled, not just fire-and-forget onChange handlers, so a loaded
+  // preset can actually move the sliders — the app-level engine state
+  // they report to (useAudioEngine.js) has no "current value" of its own
+  // to read back from.
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [presets, setPresets] = useState([]);
+  const [presetName, setPresetName] = useState('');
+  const [selectedPreset, setSelectedPreset] = useState('');
 
   useEffect(() => {
     if (!connected) setError('');
   }, [connected]);
+
+  useEffect(() => {
+    refreshPresets();
+  }, []);
+
+  function refreshPresets(preferredName) {
+    const list = listAmpPresets();
+    setPresets(list);
+    if (list.length === 0) {
+      setSelectedPreset('');
+    } else if (preferredName && list.some((p) => p.name === preferredName)) {
+      setSelectedPreset(preferredName);
+    } else if (!list.some((p) => p.name === selectedPreset)) {
+      setSelectedPreset(list[0].name);
+    }
+  }
 
   async function handleLoadModel() {
     setError('');
@@ -64,6 +99,41 @@ export default function AmpPanel({
     } catch (err) {
       setError(formatError(err));
     }
+  }
+
+  function updateSetting(key, value, onChange) {
+    setSettings((s) => ({ ...s, [key]: value }));
+    onChange?.(value);
+  }
+
+  function handleSavePreset(e) {
+    e.preventDefault();
+    const trimmed = presetName.trim();
+    if (!trimmed) return;
+    saveAmpPreset(trimmed, settings);
+    setPresetName('');
+    refreshPresets(trimmed);
+  }
+
+  function handleLoadPreset() {
+    const loaded = loadAmpPreset(selectedPreset);
+    if (!loaded) return;
+    const merged = { ...DEFAULT_SETTINGS, ...loaded };
+    setSettings(merged);
+    onInputGainChange?.(merged.gain);
+    onBassChange?.(merged.bass);
+    onMidChange?.(merged.mid);
+    onTrebleChange?.(merged.treble);
+    onReverbChange?.(merged.reverb);
+    onOutputGainChange?.(merged.output);
+    onDelayEnabledChange?.(merged.delayEnabled);
+    onDelayChange?.(merged.delay);
+  }
+
+  function handleDeletePreset() {
+    if (!selectedPreset) return;
+    deleteAmpPreset(selectedPreset);
+    refreshPresets();
   }
 
   return (
@@ -102,8 +172,8 @@ export default function AmpPanel({
                 min={0}
                 max={4}
                 step={0.05}
-                defaultValue={1}
-                onChange={(e) => onInputGainChange(Number(e.target.value))}
+                value={settings.gain}
+                onChange={(e) => updateSetting('gain', Number(e.target.value), onInputGainChange)}
               />
             </label>
             <label>
@@ -113,8 +183,8 @@ export default function AmpPanel({
                 min={-12}
                 max={12}
                 step={0.5}
-                defaultValue={0}
-                onChange={(e) => onBassChange(Number(e.target.value))}
+                value={settings.bass}
+                onChange={(e) => updateSetting('bass', Number(e.target.value), onBassChange)}
               />
             </label>
             <label>
@@ -124,8 +194,8 @@ export default function AmpPanel({
                 min={-12}
                 max={12}
                 step={0.5}
-                defaultValue={0}
-                onChange={(e) => onMidChange(Number(e.target.value))}
+                value={settings.mid}
+                onChange={(e) => updateSetting('mid', Number(e.target.value), onMidChange)}
               />
             </label>
             <label>
@@ -135,8 +205,8 @@ export default function AmpPanel({
                 min={-12}
                 max={12}
                 step={0.5}
-                defaultValue={0}
-                onChange={(e) => onTrebleChange(Number(e.target.value))}
+                value={settings.treble}
+                onChange={(e) => updateSetting('treble', Number(e.target.value), onTrebleChange)}
               />
             </label>
             <label title="Amount of room reverb mixed into the dry signal">
@@ -146,8 +216,8 @@ export default function AmpPanel({
                 min={0}
                 max={1}
                 step={0.02}
-                defaultValue={0.15}
-                onChange={(e) => onReverbChange(Number(e.target.value))}
+                value={settings.reverb}
+                onChange={(e) => updateSetting('reverb', Number(e.target.value), onReverbChange)}
               />
             </label>
             <label>
@@ -157,8 +227,8 @@ export default function AmpPanel({
                 min={0}
                 max={2}
                 step={0.05}
-                defaultValue={1}
-                onChange={(e) => onOutputGainChange(Number(e.target.value))}
+                value={settings.output}
+                onChange={(e) => updateSetting('output', Number(e.target.value), onOutputGainChange)}
               />
             </label>
           </div>
@@ -168,11 +238,8 @@ export default function AmpPanel({
               <label className="guitar-panel__latency-toggle">
                 <input
                   type="checkbox"
-                  checked={delayEnabled}
-                  onChange={(e) => {
-                    setDelayEnabledState(e.target.checked);
-                    onDelayEnabledChange(e.target.checked);
-                  }}
+                  checked={settings.delayEnabled}
+                  onChange={(e) => updateSetting('delayEnabled', e.target.checked, onDelayEnabledChange)}
                 />
                 <svg
                   viewBox="0 0 24 24"
@@ -197,9 +264,9 @@ export default function AmpPanel({
                 min={0}
                 max={1}
                 step={0.02}
-                defaultValue={0.3}
-                disabled={!delayEnabled}
-                onChange={(e) => onDelayChange(Number(e.target.value))}
+                value={settings.delay}
+                disabled={!settings.delayEnabled}
+                onChange={(e) => updateSetting('delay', Number(e.target.value), onDelayChange)}
               />
             </div>
           )}
@@ -234,6 +301,46 @@ export default function AmpPanel({
                 Tuner
               </label>
               {tunerEnabled && <TunerDisplay reading={tunerReading} />}
+            </div>
+          )}
+
+          <form className="pattern-manager__save guitar-panel__row" onSubmit={handleSavePreset}>
+            <input
+              type="text"
+              className="pattern-manager__name-input"
+              placeholder="Preset name…"
+              value={presetName}
+              onChange={(e) => setPresetName(e.target.value)}
+              maxLength={60}
+            />
+            <button type="submit" className="pattern-manager__save-btn" disabled={!presetName.trim()}>
+              Save Preset
+            </button>
+          </form>
+          {presets.length > 0 && (
+            <div className="pattern-manager__load guitar-panel__row">
+              <select
+                className="pattern-manager__select"
+                value={selectedPreset}
+                onChange={(e) => setSelectedPreset(e.target.value)}
+              >
+                {presets.map((p) => (
+                  <option key={p.name} value={p.name}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              <button type="button" className="pattern-manager__load-btn" onClick={handleLoadPreset}>
+                Load
+              </button>
+              <button
+                type="button"
+                className="pattern-manager__delete-btn"
+                onClick={handleDeletePreset}
+                title="Delete preset"
+              >
+                🗑
+              </button>
             </div>
           )}
         </>

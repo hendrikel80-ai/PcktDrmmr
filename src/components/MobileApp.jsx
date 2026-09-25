@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DEFAULT_PATTERN } from '../data/defaultPattern';
+import { resizePatternBars } from '../data/resizePattern';
 import { useMobileAudioEngine } from '../audio/useMobileAudioEngine';
+import { isTextEntryTarget } from '../utils/isTextEntryTarget';
 import StepSequencer from './StepSequencer';
 import Transport from './Transport';
 import PromptBar from './PromptBar';
@@ -17,8 +19,11 @@ import drumkitIcon from '../assets/icon-drumkit.png';
 // Schlanke Mobile-App: Drums + Mikrofon-Aufnahme, kein Gitarren-Amp/ASIO/
 // Tuner/Sound-Like/Sync-Offset (siehe Plan "Pocket Studio Mobile"). Nutzt
 // den eigenen useMobileAudioEngine-Hook statt useAudioEngine.js.
+const MAX_PATTERN_HISTORY = 50;
+
 export default function MobileApp() {
-  const [pattern, setPattern] = useState(DEFAULT_PATTERN);
+  const [pattern, setPatternState] = useState(DEFAULT_PATTERN);
+  const [patternHistory, setPatternHistory] = useState([]);
   const {
     isPlaying,
     currentStep,
@@ -43,8 +48,43 @@ export default function MobileApp() {
     deleteRecording,
   } = useMobileAudioEngine(pattern);
 
+  // Tracked setter — see App.jsx's identical pattern for why BPM changes
+  // bypass it (setPatternState directly) while grid edits/Clear/bar-count
+  // changes/pattern loads go through it.
+  function setPattern(updater) {
+    setPatternState((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      if (next === prev) return prev;
+      setPatternHistory((h) => [...h, prev].slice(-MAX_PATTERN_HISTORY));
+      return next;
+    });
+  }
+
+  function handleUndo() {
+    if (patternHistory.length === 0) return;
+    const previous = patternHistory[patternHistory.length - 1];
+    setPatternHistory((h) => h.slice(0, -1));
+    setPatternState(previous);
+  }
+
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (isTextEntryTarget(document.activeElement)) return;
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        handleUndo();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [patternHistory]);
+
   function handleBpmChange(bpm) {
-    setPattern((p) => ({ ...p, bpm }));
+    setPatternState((p) => ({ ...p, bpm }));
+  }
+
+  function handleBarsChange(newBars) {
+    setPattern((p) => resizePatternBars(p, newBars));
   }
 
   function handleLoadPattern(newPattern) {
@@ -108,10 +148,18 @@ export default function MobileApp() {
           onToggle={toggle}
           bpm={pattern.bpm}
           onBpmChange={handleBpmChange}
+          bars={pattern.bars}
+          onBarsChange={handleBarsChange}
           styleDescription={pattern.style_description}
         />
 
-        <PatternManager pattern={pattern} onLoad={handleLoadPattern} onClear={handleClearPattern} />
+        <PatternManager
+          pattern={pattern}
+          onLoad={handleLoadPattern}
+          onClear={handleClearPattern}
+          canUndo={patternHistory.length > 0}
+          onUndo={handleUndo}
+        />
 
         <StepSequencer pattern={pattern} currentStep={currentStep} onChange={setPattern} />
       </section>
