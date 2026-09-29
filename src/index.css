@@ -454,6 +454,10 @@ input[type='range']::-moz-range-thumb {
   cursor: default;
 }
 
+.view-mode-toggle {
+  margin-bottom: 20px;
+}
+
 .kit-selector__status {
   color: var(--text-dim);
   font-size: 0.8rem;
@@ -777,6 +781,55 @@ input[type='range']::-moz-range-thumb {
 
 .recording-panel__download:hover {
   text-decoration: underline;
+}
+
+.recording-panel__loop-trim {
+  padding: 2px 4px;
+}
+
+.recording-panel__loop-trim .transport__bpm-input {
+  width: 5.5em;
+  text-align: center;
+}
+
+.loop-waveform {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 8px;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.loop-waveform__canvas {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  border-radius: 3px;
+}
+
+.loop-waveform__legend {
+  display: flex;
+  gap: 14px;
+}
+
+.loop-waveform__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+.loop-waveform__swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
 }
 
 .recording-panel__rename-form {
@@ -1192,6 +1245,32 @@ input[type='range']::-moz-range-thumb {
 
 .pattern-manager__delete-btn {
   padding: 6px 10px;
+}
+
+.sequencer__hint {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+}
+
+.sequencer__hint-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.sequencer__hint-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  margin-right: 2px;
+  vertical-align: middle;
 }
 
 .sequencer {

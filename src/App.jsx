@@ -10,6 +10,8 @@ import LibraryBrowser from './components/LibraryBrowser';
 import KitSelector from './components/KitSelector';
 import PatternManager from './components/PatternManager';
 import ArrangementEditor from './components/ArrangementEditor';
+import ViewModeToggle from './components/ViewModeToggle';
+import { readStoredViewMode, writeViewMode, VIEW_MODES } from './utils/viewMode';
 import GuitarPanel from './components/GuitarPanel';
 import MicPanel from './components/MicPanel';
 import AmpPanel from './components/AmpPanel';
@@ -24,6 +26,15 @@ import logo from './assets/pocket-studio-logo.png';
 import drumkitIcon from './assets/icon-drumkit.png';
 
 const MAX_PATTERN_HISTORY = 50;
+
+// Applies a song entry's own BPM override (see ArrangementEditor.jsx's
+// per-entry tempo stepper) on top of the pattern it references, so a song
+// can mix patterns saved at different tempos without editing each saved
+// pattern's own BPM. Falls back to the pattern's saved BPM when the entry
+// has none yet (songs saved before this existed).
+function applyEntryBpm(pattern, entry) {
+  return entry?.bpm ? { ...pattern, bpm: entry.bpm } : pattern;
+}
 
 export default function App() {
   const [pattern, setPatternState] = useState(DEFAULT_PATTERN);
@@ -83,6 +94,14 @@ export default function App() {
     probeAsioChannels,
   } = useAudioEngine(pattern);
   const [asioSettingsOpen, setAsioSettingsOpen] = useState(false);
+
+  // Jam (simple) vs. Songwriting (full page, including Build a Song) — see
+  // ViewModeToggle.jsx / utils/viewMode.js.
+  const [viewMode, setViewModeState] = useState(readStoredViewMode);
+  function setViewMode(mode) {
+    setViewModeState(mode);
+    writeViewMode(mode);
+  }
 
   // Song/Arrangement Mode: an ordered list of {patternName, repeats}
   // entries referencing already-saved patterns (see ArrangementEditor.jsx
@@ -171,14 +190,15 @@ export default function App() {
       stop();
       return;
     }
-    const nextPattern = loadSavedPattern(arrangementEntries[nextIndex].patternName);
+    const nextEntry = arrangementEntries[nextIndex];
+    const nextPattern = loadSavedPattern(nextEntry.patternName);
     if (!nextPattern) {
-      setArrangementError(`Pattern "${arrangementEntries[nextIndex].patternName}" not found — song stopped.`);
+      setArrangementError(`Pattern "${nextEntry.patternName}" not found — song stopped.`);
       stop();
       return;
     }
     setArrangementError('');
-    setPatternState(nextPattern);
+    setPatternState(applyEntryBpm(nextPattern, nextEntry));
     setArrangementIndex(nextIndex);
     setArrangementLoopsDone(0);
   }, [currentStep]);
@@ -213,14 +233,15 @@ export default function App() {
 
   function handlePlaySong() {
     if (arrangementEntries.length === 0) return;
-    const firstPattern = loadSavedPattern(arrangementEntries[0].patternName);
+    const firstEntry = arrangementEntries[0];
+    const firstPattern = loadSavedPattern(firstEntry.patternName);
     if (!firstPattern) {
-      setArrangementError(`Pattern "${arrangementEntries[0].patternName}" not found.`);
+      setArrangementError(`Pattern "${firstEntry.patternName}" not found.`);
       return;
     }
     setArrangementError('');
     prevStepRef.current = null;
-    setPatternState(firstPattern);
+    setPatternState(applyEntryBpm(firstPattern, firstEntry));
     setArrangementIndex(0);
     setArrangementLoopsDone(0);
     setIsArrangementPlaying(true);
@@ -333,6 +354,8 @@ export default function App() {
         onSyncOffsetChange={setSyncOffsetMs}
       />
 
+      <ViewModeToggle mode={viewMode} onChange={setViewMode} />
+
       <section className="drums-section">
         <div className="sequencer-section__header">
           <h2 className="drums-section__heading">
@@ -342,32 +365,38 @@ export default function App() {
           <KitSelector kitId={kitId} isLoading={isKitLoading} onSelect={selectKit} />
         </div>
 
-        <PromptBar onGenerate={handleLoadPattern} />
-        <LibraryBrowser onLoad={handleLoadPattern} />
+        {viewMode === VIEW_MODES.JAM && (
+          <>
+            <PromptBar onGenerate={handleLoadPattern} />
+            <LibraryBrowser onLoad={handleLoadPattern} />
 
-        <div className="section-frame">
-          <h3 className="section-frame__heading">Build a Beat</h3>
-          <PatternManager
-            pattern={pattern}
-            onLoad={handleLoadPattern}
-            onClear={handleClearPattern}
-            canUndo={patternHistory.length > 0}
-            onUndo={handleUndo}
+            <div className="section-frame">
+              <h3 className="section-frame__heading">Build a Beat</h3>
+              <PatternManager
+                pattern={pattern}
+                onLoad={handleLoadPattern}
+                onClear={handleClearPattern}
+                canUndo={patternHistory.length > 0}
+                onUndo={handleUndo}
+              />
+            </div>
+          </>
+        )}
+
+        {viewMode === VIEW_MODES.SONGWRITING && (
+          <ArrangementEditor
+            entries={arrangementEntries}
+            onEntriesChange={setArrangementEntries}
+            loopArrangement={loopArrangement}
+            onLoopArrangementChange={setLoopArrangement}
+            onPlaySong={handlePlaySong}
+            onStopSong={handleStopSong}
+            isArrangementPlaying={isArrangementPlaying}
+            activeIndex={arrangementIndex}
+            activeLoopsDone={arrangementLoopsDone}
+            error={arrangementError}
           />
-        </div>
-
-        <ArrangementEditor
-          entries={arrangementEntries}
-          onEntriesChange={setArrangementEntries}
-          loopArrangement={loopArrangement}
-          onLoopArrangementChange={setLoopArrangement}
-          onPlaySong={handlePlaySong}
-          onStopSong={handleStopSong}
-          isArrangementPlaying={isArrangementPlaying}
-          activeIndex={arrangementIndex}
-          activeLoopsDone={arrangementLoopsDone}
-          error={arrangementError}
-        />
+        )}
 
         <Transport
           isPlaying={isPlaying}
@@ -381,11 +410,33 @@ export default function App() {
           styleDescription={pattern.style_description}
         />
 
+        <div className="sequencer__hint">
+          <span>Click steps to cycle through:</span>
+          <span className="sequencer__hint-legend">
+            <span className="sequencer__hint-swatch" style={{ background: 'var(--step-off)' }} />
+            Off
+            <span
+              className="sequencer__hint-swatch"
+              style={{ background: 'color-mix(in srgb, var(--accent) 31%, var(--step-beat))' }}
+            />
+            Ghost
+            <span
+              className="sequencer__hint-swatch"
+              style={{ background: 'color-mix(in srgb, var(--accent) 75%, var(--step-beat))' }}
+            />
+            Normal
+            <span
+              className="sequencer__hint-swatch"
+              style={{ background: 'color-mix(in srgb, var(--accent) 98%, var(--step-beat))' }}
+            />
+            Accent
+          </span>
+        </div>
+
         <StepSequencer pattern={pattern} currentStep={currentStep} onChange={setPattern} />
       </section>
 
       <footer className="app__footer">
-        <p>Click steps to program them (Off → Ghost → Normal → Accent).</p>
         <div className="app__footer-links">
           <FeedbackButton platform="Desktop" />
           <InfoDialog />

@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react';
-import { listPatterns, savePattern } from '../data/patternStorage';
+import { listPatterns, loadPattern, savePattern } from '../data/patternStorage';
 import {
   deleteArrangement,
   listArrangements,
   loadArrangement,
   saveArrangement,
 } from '../data/arrangementStorage';
+import NumberStepper from './NumberStepper';
+import { downloadArrangementAsMidi } from '../audio/midiExport';
 
 const MAX_REPEATS = 32;
+const BPM_MIN = 40;
+const BPM_MAX = 300;
 
 // Song/Arrangement Mode: a saved, named playlist of already-saved patterns
 // (each with its own repeat count), played back in order by App.jsx/
@@ -98,7 +102,11 @@ export default function ArrangementEditor({
 
   function handleAddEntry() {
     if (!effectivePatternToAdd) return;
-    onEntriesChange([...entries, { patternName: effectivePatternToAdd, repeats: 1 }]);
+    // Seeds the entry's own BPM from the pattern's saved value (see
+    // handleBpmChange below) — a starting point the user can then override
+    // per song without touching the underlying saved pattern.
+    const bpm = loadPattern(effectivePatternToAdd)?.bpm;
+    onEntriesChange([...entries, { patternName: effectivePatternToAdd, repeats: 1, bpm }]);
   }
 
   function handleLibraryGenreChange(slug) {
@@ -122,7 +130,7 @@ export default function ArrangementEditor({
     const suffix = Math.random().toString(36).slice(2, 6);
     const name = `${entry.genreLabel} – ${entry.subgenreLabel} (${entry.pattern.bpm} BPM) #${suffix}`;
     savePattern(name, entry.pattern);
-    onEntriesChange([...entries, { patternName: name, repeats: 1 }]);
+    onEntriesChange([...entries, { patternName: name, repeats: 1, bpm: entry.pattern.bpm }]);
     setLibrarySelectedIndex('');
   }
 
@@ -133,6 +141,32 @@ export default function ArrangementEditor({
   function handleRepeatsChange(index, repeats) {
     const clamped = Math.max(1, Math.min(MAX_REPEATS, Math.round(repeats) || 1));
     onEntriesChange(entries.map((e, i) => (i === index ? { ...e, repeats: clamped } : e)));
+  }
+
+  // Per-song BPM override for this entry — lets a song mix patterns saved
+  // at different tempos without having to re-save each pattern just to
+  // change its BPM. Falls back to the pattern's own saved BPM wherever
+  // this is missing (older songs saved before this existed) — see
+  // App.jsx's/MobileApp.jsx's playback code, which does that fallback.
+  function handleEntryBpmChange(index, bpm) {
+    const clamped = Math.max(BPM_MIN, Math.min(BPM_MAX, Math.round(bpm) || BPM_MIN));
+    onEntriesChange(entries.map((e, i) => (i === index ? { ...e, bpm: clamped } : e)));
+  }
+
+  // Resolves every entry's saved pattern (skipping any that were deleted
+  // out from under the song — same "missing pattern" possibility playback
+  // already has to handle) and stitches them into one Standard MIDI File,
+  // one section per entry at that entry's own BPM override.
+  function handleExportMidi() {
+    const sections = entries
+      .map((entry) => {
+        const resolvedPattern = loadPattern(entry.patternName);
+        if (!resolvedPattern) return null;
+        return { pattern: resolvedPattern, bpm: entry.bpm ?? resolvedPattern.bpm, repeats: entry.repeats };
+      })
+      .filter(Boolean);
+    if (sections.length === 0) return;
+    downloadArrangementAsMidi(sections);
   }
 
   function handleMove(index, delta) {
@@ -279,12 +313,25 @@ export default function ArrangementEditor({
         <ol className="arrangement-editor__entries">
           {entries.map((entry, index) => {
             const isActive = isArrangementPlaying && index === activeIndex;
+            // Older songs saved before per-entry BPM existed have no
+            // `bpm` field yet — fall back to the referenced pattern's own
+            // saved tempo so the stepper always shows a real value.
+            const displayBpm = entry.bpm ?? loadPattern(entry.patternName)?.bpm ?? 120;
             return (
               <li
                 key={`${entry.patternName}-${index}`}
                 className={`arrangement-editor__entry${isActive ? ' arrangement-editor__entry--active' : ''}`}
               >
                 <span className="arrangement-editor__entry-name">{entry.patternName}</span>
+                <NumberStepper
+                  value={displayBpm}
+                  onChange={(next) => handleEntryBpmChange(index, next)}
+                  min={BPM_MIN}
+                  max={BPM_MAX}
+                  unit="BPM"
+                  className="arrangement-editor__repeats"
+                  ariaLabel={`tempo for ${entry.patternName}`}
+                />
                 <span className="transport__bpm arrangement-editor__repeats">
                   <button
                     type="button"
@@ -357,6 +404,34 @@ export default function ArrangementEditor({
           disabled={!isArrangementPlaying && entries.length === 0}
         >
           {isArrangementPlaying ? '⏸ Stop Song' : '▶ Play Song'}
+        </button>
+        <button
+          type="button"
+          className="pattern-manager__save-btn"
+          onClick={handleExportMidi}
+          disabled={entries.length === 0}
+          title="Export the whole song as a Standard MIDI file to import into a DAW"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="13"
+            height="13"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ verticalAlign: '-2px', marginRight: '4px' }}
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="9" />
+            <circle cx="12" cy="7.3" r="0.9" fill="currentColor" stroke="none" />
+            <circle cx="8.7" cy="9.3" r="0.9" fill="currentColor" stroke="none" />
+            <circle cx="15.3" cy="9.3" r="0.9" fill="currentColor" stroke="none" />
+            <circle cx="8.7" cy="13.3" r="0.9" fill="currentColor" stroke="none" />
+            <circle cx="15.3" cy="13.3" r="0.9" fill="currentColor" stroke="none" />
+          </svg>
+          Export MIDI
         </button>
       </div>
 

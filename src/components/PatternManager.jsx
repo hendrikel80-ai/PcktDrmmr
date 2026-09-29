@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { deletePattern, listPatterns, loadPattern, savePattern, setPatternReference } from '../data/patternStorage';
 import { downloadPatternAsMidi } from '../audio/midiExport';
 
-export default function PatternManager({ pattern, onLoad, onClear, canUndo, onUndo }) {
+export default function PatternManager({ pattern, onLoad, onClear, canUndo, onUndo, onChange }) {
   const [name, setName] = useState('');
   const [saved, setSaved] = useState([]);
   const [selectedName, setSelectedName] = useState('');
@@ -21,6 +21,13 @@ export default function PatternManager({ pattern, onLoad, onClear, canUndo, onUn
     } else if (!list.some((p) => p.name === selectedName)) {
       setSelectedName(list[0].name);
     }
+    // Lets a parent (App.jsx/MobileApp.jsx) force ArrangementEditor.jsx to
+    // re-render — ArrangementEditor reads listPatterns() fresh every render
+    // instead of caching it, but a sibling saving/deleting a pattern here
+    // doesn't itself cause ArrangementEditor to re-render at all, so its
+    // "From Own Patterns" dropdown would otherwise show stale data until
+    // something unrelated happened to touch App-level state.
+    onChange?.();
   }
 
   function handleSave(e) {

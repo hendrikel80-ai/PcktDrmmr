@@ -622,7 +622,7 @@ export function useAudioEngine(pattern) {
           const mixBlob = new Blob([mp3Bytes], { type: 'audio/mpeg' });
           const url = URL.createObjectURL(mixBlob);
           setRecordings((prev) => [
-            { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, path: finalPath, url, filename, createdAt: Date.now(), archived: false },
+            { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, path: finalPath, url, filename, createdAt: Date.now(), archived: false, loopDurationSeconds: trimSeconds },
             ...prev,
           ]);
         } catch (err) {
@@ -650,7 +650,7 @@ export function useAudioEngine(pattern) {
               console.error('Saving the merged recording to disk failed:', err);
             }
             setRecordings((prev) => [
-              { id: `${Date.now()}-${Math.random().toString(36).slice(2)}-mix`, path: savedPath, url, filename: mergedFilename, createdAt: Date.now(), archived: false },
+              { id: `${Date.now()}-${Math.random().toString(36).slice(2)}-mix`, path: savedPath, url, filename: mergedFilename, createdAt: Date.now(), archived: false, loopDurationSeconds: trimSeconds },
               ...prev,
             ]);
           })
@@ -666,7 +666,7 @@ export function useAudioEngine(pattern) {
         const url = URL.createObjectURL(finalBlob);
         const filename = `pocket-studio-riff-${formatTimestamp()}${loopSuffix}.${extension}`;
         setRecordings((prev) => [
-          { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, url, filename, createdAt: Date.now(), archived: false },
+          { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, url, filename, createdAt: Date.now(), archived: false, loopDurationSeconds: trimSeconds },
           ...prev,
         ]);
       }

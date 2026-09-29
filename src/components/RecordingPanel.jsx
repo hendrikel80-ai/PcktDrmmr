@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { isTextEntryTarget } from '../utils/isTextEntryTarget';
+import NumberStepper from './NumberStepper';
+import LoopWaveform from './LoopWaveform';
 
 // Counts up musically (1, 2, 3, [4]) as a count-in instead of a plain
 // "get ready" countdown — the number of counted beats and their tempo
@@ -37,6 +39,81 @@ function formatElapsed(ms) {
   const seconds = totalSeconds % 60;
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
+
+// M:SS:cc display/entry for the loop-trim stepper (see NumberStepper's
+// optional format/parse props) — two-digit centiseconds, not three-digit
+// milliseconds: the stepper's own step size is 10ms, so a third digit
+// would always just read 0. The underlying value NumberStepper steps and
+// clamps stays plain milliseconds throughout; only how it's shown/typed
+// changes here (×10 / ÷10 at the boundary).
+function formatMsAsClock(totalMs) {
+  const clamped = Math.max(0, Math.round(totalMs));
+  let totalSeconds = Math.floor(clamped / 1000);
+  let centiseconds = Math.round((clamped % 1000) / 10);
+  if (centiseconds >= 100) {
+    centiseconds = 0;
+    totalSeconds += 1;
+  }
+  const seconds = totalSeconds % 60;
+  const minutes = Math.floor(totalSeconds / 60);
+  return `${minutes}:${String(seconds).padStart(2, '0')}:${String(centiseconds).padStart(2, '0')}`;
+}
+
+function parseClockAsMs(text) {
+  const match = text.trim().match(/^(\d+):([0-5]?\d):(\d{1,2})$/);
+  if (!match) return NaN;
+  const [, minutes, seconds, centiseconds] = match;
+  return (parseInt(minutes, 10) * 60 + parseInt(seconds, 10)) * 1000 + parseInt(centiseconds, 10) * 10;
+}
+
+// Finds where real signal starts in a decoded buffer, scanning only the
+// first half-second (encoder padding is always a handful of milliseconds,
+// never anywhere near that long) — used as the Web Audio loop's restart
+// point so gapless playback skips the MP3 encoder's silent lead-in on every
+// pass instead of just the first. -45dBFS sits safely below encoder-silence
+// noise floor while still catching even a quiet pickup/mic onset.
+const SILENCE_AMPLITUDE_THRESHOLD = 0.0056; // ~ -45 dBFS
+function detectLeadingSilenceSeconds(audioBuffer) {
+  const data = audioBuffer.getChannelData(0);
+  const scanLimit = Math.min(data.length, Math.floor(audioBuffer.sampleRate * 0.5));
+  for (let i = 0; i < scanLimit; i++) {
+    if (Math.abs(data[i]) > SILENCE_AMPLITUDE_THRESHOLD) {
+      return i / audioBuffer.sampleRate;
+    }
+  }
+  return 0;
+}
+
+// The other half of the same problem: MP3 encoders also pad silence onto
+// the END of the file (to flush the encoder's filterbank) — left at its
+// natural full duration, the loop plays all the way through that trailing
+// silence before restarting, which is audible as "it plays, ends, a beat
+// of silence, then restarts". Scans backward from the end (same threshold/
+// window as the leading-silence scan) for where real signal actually stops.
+function detectTrailingSignalEndSeconds(audioBuffer) {
+  const data = audioBuffer.getChannelData(0);
+  const scanStart = Math.max(0, data.length - Math.floor(audioBuffer.sampleRate * 0.5));
+  for (let i = data.length - 1; i >= scanStart; i--) {
+    if (Math.abs(data[i]) > SILENCE_AMPLITUDE_THRESHOLD) {
+      return (i + 1) / audioBuffer.sampleRate;
+    }
+  }
+  return audioBuffer.duration;
+}
+
+// Loop-start for a take made WITH "Loop recording" (i.e. one that has
+// loopDurationSeconds — see useAudioEngine.js's computeLoopTrimSeconds):
+// a FIXED offset, not detected from the waveform. The waveform-scan
+// approach (detectLeadingSilenceSeconds above) turned out to be the actual
+// bug behind a persistent audible pause — a real recording can have quiet
+// content (a soft hi-hat tick, sample pre-roll noise) between the true
+// silence and the loud downbeat, and the amplitude threshold latched onto
+// that quiet content instead of the beat, landing loopStart ~100ms before
+// the actual hit. Since recording starts in sync with the count-in (right
+// on beat 1), the true answer is simpler: skip only the known, small,
+// content-independent MP3 encoder lead-in (LAME's encoder delay is
+// ~26ms/1152 samples at 44.1kHz), nothing more.
+const FIXED_LOOP_LEAD_IN_SECONDS = 0.03;
 
 const WAVE_BARS = Array.from({ length: 7 });
 
@@ -79,14 +156,56 @@ export default function RecordingPanel({
   // "Loop recording" takes actually loop on play without extra clicks,
   // while still letting the user flip it either way per take.
   const [loopPlaybackOverrides, setLoopPlaybackOverrides] = useState({});
-  // Inline rename of one recording at a time (no native prompt() —
-  // unreliable inside Tauri's webview), keyed by id since the list renders
-  // every recording at once, unlike a single-selection dropdown.
+  // Gapless loop preview: the native <audio loop> element can't guarantee
+  // a click/pause-free restart (browsers don't seek/loop compressed audio
+  // sample-accurately), so looped playback that must run with no gap
+  // between passes goes through Web Audio's AudioBufferSourceNode instead,
+  // which loops at an exact sample position (loopEnd) with no restart gap.
+  // loopTrimOverrides (id -> seconds) is the user-adjustable point that
+  // sample-accurate loop restarts at; naturalDurations (id -> seconds) is
+  // each recording's full decoded length, known only once decoded.
+  const [loopTrimOverrides, setLoopTrimOverrides] = useState({});
+  const [naturalDurations, setNaturalDurations] = useState({});
+  const [playingLoopId, setPlayingLoopId] = useState(null);
+  const previewCtxRef = useRef(null);
+  const decodedBuffersRef = useRef({});
+  // MP3 encoding (LAME, see useAudioEngine.js's mp3Encode) always pads a
+  // short burst of silence onto the very start of the file (encoder
+  // filterbank delay, typically ~10-30ms) — decodeAudioData includes it
+  // literally, so looping back to sample 0 replays that silence on every
+  // pass, which is exactly what's audible as "a pause" at the loop point.
+  // Detected once per decoded buffer and used as loopStart (not 0) below,
+  // so only the very first play-through ever hits it.
+  const leadingSilenceRef = useRef({});
+  // The other end of the same silence-padding problem — see
+  // detectTrailingSignalEndSeconds's doc above. Used as the DEFAULT trim
+  // value (loopTrimOverrides still wins once the user actually touches the
+  // stepper) so playback doesn't sit through trailing silence before
+  // restarting.
+  const trailingSignalEndRef = useRef({});
+  // Chained-segment gapless scheduling (same lookahead pattern as
+  // Scheduler.js — see LOOP_SCHEDULE_AHEAD_SECONDS's doc below): rather
+  // than trusting a single AudioBufferSourceNode's own loop/loopStart/
+  // loopEnd wraparound, a new non-looping copy of the same segment is
+  // explicitly scheduled to start at the exact audioCtx time the previous
+  // one ends, chained indefinitely. Sample-accurate because the start time
+  // comes from the audio clock, not a JS timer.
+  const loopSchedulerIdRef = useRef(null);
+  const loopScheduledSourcesRef = useRef([]);
+  const loopNextStartTimeRef = useRef(0);
+  const loopSegmentRef = useRef(null); // { buffer, offset, duration }
+  const decodingRef = useRef(new Set());
+  const audioElementsRef = useRef({}); // id -> <audio> DOM node, so starting one playback stops the other
+  // Inline rename of one recording at a time (no native prompt() — see
+  // ArrangementEditor.jsx's earlier reasoning: unreliable inside Tauri's
+  // webview), keyed by id since the list renders every recording at once,
+  // unlike a single-selection dropdown.
   const [renamingId, setRenamingId] = useState(null);
   const [renameText, setRenameText] = useState('');
   const [renameError, setRenameError] = useState('');
-  // Archived recordings stay in the `recordings` prop, just hidden here by
-  // default — this toggles a separate view to bring one back.
+  // Archived recordings stay in the list from useAudioEngine.js/
+  // useMobileAudioEngine.js's point of view, just hidden here by default —
+  // this toggles a separate view to bring one back.
   const [showArchived, setShowArchived] = useState(false);
 
   const beatsPerBar = beatsPerBarFromTimeSignature(timeSignature);
@@ -149,6 +268,59 @@ export default function RecordingPanel({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [supported, isRecording, count, onToggle]);
 
+  // Lazily decodes any loop-enabled recording so its full duration is known
+  // (the loop-trim stepper needs it as the upper bound, and the "▶ Loop"
+  // gapless preview button needs the actual AudioBuffer) — decoding is
+  // itself cheap enough at this app's recording sizes to just always do it
+  // once a take is marked as looping, rather than waiting for the user to
+  // press play. decodingRef guards against re-decoding the same recording
+  // twice while its fetch/decode is still in flight.
+  useEffect(() => {
+    recordings.forEach((r) => {
+      const loopPlayback = loopPlaybackOverrides[r.id] ?? isLoopTake(r.filename);
+      if (!loopPlayback) return;
+      if (naturalDurations[r.id] != null) return;
+      if (decodingRef.current.has(r.id)) return;
+      decodingRef.current.add(r.id);
+      (async () => {
+        try {
+          if (!previewCtxRef.current) {
+            previewCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+          }
+          const response = await fetch(r.url);
+          const arrayBuffer = await response.arrayBuffer();
+          const buffer = await previewCtxRef.current.decodeAudioData(arrayBuffer);
+          decodedBuffersRef.current[r.id] = buffer;
+          leadingSilenceRef.current[r.id] = detectLeadingSilenceSeconds(buffer);
+          trailingSignalEndRef.current[r.id] = detectTrailingSignalEndSeconds(buffer);
+          setNaturalDurations((d) => ({ ...d, [r.id]: buffer.duration }));
+        } catch (err) {
+          console.error('Decoding a recording for gapless loop preview failed:', err);
+        } finally {
+          decodingRef.current.delete(r.id);
+        }
+      })();
+    });
+  }, [recordings, loopPlaybackOverrides, naturalDurations]);
+
+  // Stops the gapless preview (if any) and closes its AudioContext when
+  // this panel unmounts, instead of leaving the scheduler/voices dangling.
+  useEffect(() => {
+    return () => {
+      if (loopSchedulerIdRef.current) {
+        clearInterval(loopSchedulerIdRef.current);
+      }
+      loopScheduledSourcesRef.current.forEach((source) => {
+        try {
+          source.stop();
+        } catch {
+          // already stopped - nothing to do
+        }
+      });
+      previewCtxRef.current?.close().catch(() => {});
+    };
+  }, []);
+
   if (!supported) {
     return (
       <div className="recording-panel recording-panel--unsupported">
@@ -186,6 +358,151 @@ export default function RecordingPanel({
     }
     setRenamingId(null);
     setRenameError('');
+  }
+
+  function getTrimSeconds(r) {
+    const override = loopTrimOverrides[r.id];
+    if (override != null) return override;
+    // Prefer the EXACT bar-aligned duration computed at record time (see
+    // useAudioEngine.js's computeLoopTrimSeconds call) over guessing from
+    // the waveform: a drum pattern can legitimately have real silence late
+    // in its last bar (e.g. the last hit falls early), and amplitude-based
+    // scanning can't tell that apart from encoder padding — trimming it
+    // away shifts the loop off the beat grid, which is exactly what a
+    // hardware looper never does (it loops the exact number of recorded
+    // samples, not a guessed one). Only recordings made without "Loop
+    // recording" on (or loaded back after a restart, which can't recover
+    // this) fall back to the waveform scan.
+    const natural = naturalDurations[r.id];
+    if (r.loopDurationSeconds != null && natural != null) {
+      return Math.min(FIXED_LOOP_LEAD_IN_SECONDS + r.loopDurationSeconds, natural);
+    }
+    if (trailingSignalEndRef.current[r.id] != null) return trailingSignalEndRef.current[r.id];
+    return natural ?? null;
+  }
+
+  // Takes the final value directly (milliseconds, converted to seconds
+  // here), matching NumberStepper's onChange contract — its own hold/type-
+  // in logic already does the stepping/clamping/rounding.
+  function handleTrimMsChange(r, ms) {
+    const natural = naturalDurations[r.id];
+    if (natural == null) return;
+    const seconds = Math.max(0.1, Math.min(natural, ms / 1000));
+    setLoopTrimOverrides((o) => ({ ...o, [r.id]: seconds }));
+  }
+
+  // Schedules one more non-looping copy of the loop segment right after
+  // the previously-scheduled one, using audioCtx time (not Date.now()/JS
+  // timers) as the start time — the same reason Scheduler.js's own
+  // trigger times are all audioCtx-clock-based. AudioBufferSourceNode's
+  // own loop/loopStart/loopEnd wraparound *should* be equally gapless per
+  // spec, but chaining explicit segments this way removes any dependency
+  // on a single node's own internal loop implementation and matches
+  // exactly how this app's drum sequencer already schedules ahead.
+  function scheduleNextLoopSegment(ctx) {
+    const segment = loopSegmentRef.current;
+    if (!segment) return;
+    const source = ctx.createBufferSource();
+    source.buffer = segment.buffer;
+    source.connect(ctx.destination);
+    // Prunes itself from the tracking array once done — without this the
+    // array would grow for as long as the loop keeps playing (every ~100ms
+    // tick can add a new entry that's never removed again).
+    source.onended = () => {
+      loopScheduledSourcesRef.current = loopScheduledSourcesRef.current.filter((s) => s !== source);
+    };
+    source.start(loopNextStartTimeRef.current, segment.offset, segment.duration);
+    loopScheduledSourcesRef.current.push(source);
+    loopNextStartTimeRef.current += segment.duration;
+  }
+
+  // Same "tick often, schedule a short window ahead using the audio
+  // clock" shape as Scheduler.js's own _scheduler() — keeps the next
+  // couple of loop passes queued up well before they're due, so a slow
+  // JS tick never risks missing the exact moment the current pass ends.
+  const LOOP_SCHEDULE_AHEAD_SECONDS = 0.3;
+  const LOOP_SCHEDULE_INTERVAL_MS = 100;
+  function loopSchedulerTick() {
+    const ctx = previewCtxRef.current;
+    if (!ctx || !loopSegmentRef.current) return;
+    while (loopNextStartTimeRef.current < ctx.currentTime + LOOP_SCHEDULE_AHEAD_SECONDS) {
+      scheduleNextLoopSegment(ctx);
+    }
+  }
+
+  // The exact {loopStart, loopEnd} a given recording will actually be
+  // played with — factored out so LoopWaveform (below) can draw markers at
+  // PRECISELY what handlePlayLoopPreview uses, not an approximation of it.
+  function computeLoopBounds(r, buffer) {
+    // loopStart never comes from waveform scanning for a "Loop recording"
+    // take — see FIXED_LOOP_LEAD_IN_SECONDS's doc for why that was the bug.
+    const rawStart = r.loopDurationSeconds != null ? FIXED_LOOP_LEAD_IN_SECONDS : (leadingSilenceRef.current[r.id] ?? 0);
+    const defaultEnd =
+      r.loopDurationSeconds != null
+        ? Math.min(rawStart + r.loopDurationSeconds, buffer.duration)
+        : (trailingSignalEndRef.current[r.id] ?? buffer.duration);
+    const trim = loopTrimOverrides[r.id] ?? defaultEnd;
+    const loopStart = Math.max(0, Math.min(rawStart, trim - 0.05));
+    const loopEnd = Math.min(Math.max(trim, loopStart + 0.1), buffer.duration);
+    return { loopStart, loopEnd };
+  }
+
+  // Gapless loop preview: decode once (or reuse the cached buffer from the
+  // background-decode effect above), then chain-schedule copies of the
+  // trimmed segment back-to-back (see scheduleNextLoopSegment) so there's
+  // no restart pause the way the native <audio loop> element can have on
+  // compressed audio.
+  async function handlePlayLoopPreview(r) {
+    stopLoopPreview();
+    audioElementsRef.current[r.id]?.pause();
+    if (!previewCtxRef.current) {
+      previewCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    const ctx = previewCtxRef.current;
+    if (ctx.state === 'suspended') await ctx.resume();
+
+    let buffer = decodedBuffersRef.current[r.id];
+    if (!buffer) {
+      const response = await fetch(r.url);
+      const arrayBuffer = await response.arrayBuffer();
+      buffer = await ctx.decodeAudioData(arrayBuffer);
+      decodedBuffersRef.current[r.id] = buffer;
+      leadingSilenceRef.current[r.id] = detectLeadingSilenceSeconds(buffer);
+      trailingSignalEndRef.current[r.id] = detectTrailingSignalEndSeconds(buffer);
+      setNaturalDurations((d) => ({ ...d, [r.id]: buffer.duration }));
+    }
+
+    const { loopStart, loopEnd } = computeLoopBounds(r, buffer);
+
+    loopSegmentRef.current = { buffer, offset: loopStart, duration: loopEnd - loopStart };
+    loopScheduledSourcesRef.current = [];
+    loopNextStartTimeRef.current = ctx.currentTime + 0.05;
+    scheduleNextLoopSegment(ctx);
+    scheduleNextLoopSegment(ctx); // pre-queue a second pass immediately, not just on the first tick
+    loopSchedulerIdRef.current = setInterval(loopSchedulerTick, LOOP_SCHEDULE_INTERVAL_MS);
+    setPlayingLoopId(r.id);
+  }
+
+  function stopLoopPreview() {
+    if (loopSchedulerIdRef.current) {
+      clearInterval(loopSchedulerIdRef.current);
+      loopSchedulerIdRef.current = null;
+    }
+    loopScheduledSourcesRef.current.forEach((source) => {
+      try {
+        source.stop();
+      } catch {
+        // already stopped - nothing to do
+      }
+      try {
+        source.disconnect();
+      } catch {
+        // already disconnected - nothing to do
+      }
+    });
+    loopScheduledSourcesRef.current = [];
+    loopSegmentRef.current = null;
+    setPlayingLoopId(null);
   }
 
   const counting = count !== null;
@@ -327,8 +644,25 @@ export default function RecordingPanel({
                   const loopPlayback = loopPlaybackOverrides[r.id] ?? isLoopTake(r.filename);
                   return (
                     <li key={r.id} className="recording-panel__item">
-                      <audio controls loop={loopPlayback} src={r.url} className="recording-panel__audio" />
-                      <label className="recording-panel__loop-playback" title="Loop this recording during playback">
+                      <audio
+                        ref={(el) => {
+                          audioElementsRef.current[r.id] = el;
+                        }}
+                        controls
+                        // Never loops here — the browser can't restart
+                        // compressed audio at an exact sample position, so
+                        // native looping always has an audible gap/stutter
+                        // at the seam. Seamless looping only happens
+                        // through the "▶ Loop" Web Audio button below.
+                        loop={false}
+                        onPlay={stopLoopPreview}
+                        src={r.url}
+                        className="recording-panel__audio"
+                      />
+                      <label
+                        className="recording-panel__loop-playback"
+                        title="Show seamless-loop playback controls for this recording"
+                      >
                         <input
                           type="checkbox"
                           checked={loopPlayback}
@@ -353,6 +687,42 @@ export default function RecordingPanel({
                           <path d="M21 13v2a4 4 0 0 1-4 4H3" />
                         </svg>
                       </label>
+
+                      {loopPlayback && (
+                        <>
+                          <button
+                            type="button"
+                            className="recording-panel__delete"
+                            onClick={() =>
+                              playingLoopId === r.id ? stopLoopPreview() : handlePlayLoopPreview(r)
+                            }
+                            title="Play this recording seamlessly looped (no restart pause), trimmed to the point below"
+                          >
+                            {playingLoopId === r.id ? '⏸' : '▶'} Loop
+                          </button>
+                          {naturalDurations[r.id] != null && (
+                            <NumberStepper
+                              value={Math.round(getTrimSeconds(r) * 1000)}
+                              onChange={(ms) => handleTrimMsChange(r, ms)}
+                              min={100}
+                              max={Math.round(naturalDurations[r.id] * 1000)}
+                              step={10}
+                              format={formatMsAsClock}
+                              parse={parseClockAsMs}
+                              className="recording-panel__loop-trim"
+                              ariaLabel={`loop length for ${r.filename}`}
+                              title="Trim how much of this recording plays before it loops back to the start (M:SS:cc)"
+                            />
+                          )}
+                          {naturalDurations[r.id] != null &&
+                            decodedBuffersRef.current[r.id] &&
+                            (() => {
+                              const buffer = decodedBuffersRef.current[r.id];
+                              const { loopStart, loopEnd } = computeLoopBounds(r, buffer);
+                              return <LoopWaveform buffer={buffer} loopStart={loopStart} loopEnd={loopEnd} />;
+                            })()}
+                        </>
+                      )}
 
                       {r.id === renamingId ? (
                         <form className="recording-panel__rename-form" onSubmit={handleConfirmRename}>
@@ -409,11 +779,13 @@ export default function RecordingPanel({
                                 strokeWidth="2.5"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
+                                style={{ verticalAlign: '-2px', marginRight: '4px' }}
                                 aria-hidden="true"
                               >
                                 <path d="M12 20h9" />
                                 <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
                               </svg>
+                              Rename
                             </button>
                           )}
                           {onArchive && (
@@ -432,12 +804,14 @@ export default function RecordingPanel({
                                 strokeWidth="2.5"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
+                                style={{ verticalAlign: '-2px', marginRight: '4px' }}
                                 aria-hidden="true"
                               >
                                 <rect x="3" y="4" width="18" height="4" rx="1" />
                                 <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8" />
                                 <path d="M10 13h4" />
                               </svg>
+                              Archive
                             </button>
                           )}
                           <button

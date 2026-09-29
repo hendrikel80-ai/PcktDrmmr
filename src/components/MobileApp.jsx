@@ -11,10 +11,12 @@ import LibraryBrowser from './LibraryBrowser';
 import KitSelector from './KitSelector';
 import PatternManager from './PatternManager';
 import ArrangementEditor from './ArrangementEditor';
+import ViewModeToggle from './ViewModeToggle';
 import MobileMicPanel from './MobileMicPanel';
 import RecordingPanel from './RecordingPanel';
 import InfoDialog from './InfoDialog';
 import FeedbackButton from './FeedbackButton';
+import { readStoredViewMode, writeViewMode, VIEW_MODES } from '../utils/viewMode';
 import logo from '../assets/pocket-studio-logo.png';
 import drumkitIcon from '../assets/icon-drumkit.png';
 
@@ -22,6 +24,11 @@ import drumkitIcon from '../assets/icon-drumkit.png';
 // Tuner/Sound-Like/Sync-Offset (siehe Plan "Pocket Studio Mobile"). Nutzt
 // den eigenen useMobileAudioEngine-Hook statt useAudioEngine.js.
 const MAX_PATTERN_HISTORY = 50;
+
+// See App.jsx's identical helper.
+function applyEntryBpm(pattern, entry) {
+  return entry?.bpm ? { ...pattern, bpm: entry.bpm } : pattern;
+}
 
 export default function MobileApp() {
   const [pattern, setPatternState] = useState(DEFAULT_PATTERN);
@@ -53,6 +60,14 @@ export default function MobileApp() {
     drumVolume,
     setDrumVolume,
   } = useMobileAudioEngine(pattern);
+
+  // Jam (simple) vs. Songwriting (full page, including Build a Song) — see
+  // App.jsx's identical block.
+  const [viewMode, setViewModeState] = useState(readStoredViewMode);
+  function setViewMode(mode) {
+    setViewModeState(mode);
+    writeViewMode(mode);
+  }
 
   // Song/Arrangement Mode — see App.jsx's identical block for the full
   // reasoning (playback advancement lives at this level, reacting to
@@ -122,14 +137,15 @@ export default function MobileApp() {
       stop();
       return;
     }
-    const nextPattern = loadSavedPattern(arrangementEntries[nextIndex].patternName);
+    const nextEntry = arrangementEntries[nextIndex];
+    const nextPattern = loadSavedPattern(nextEntry.patternName);
     if (!nextPattern) {
-      setArrangementError(`Pattern "${arrangementEntries[nextIndex].patternName}" not found — song stopped.`);
+      setArrangementError(`Pattern "${nextEntry.patternName}" not found — song stopped.`);
       stop();
       return;
     }
     setArrangementError('');
-    setPatternState(nextPattern);
+    setPatternState(applyEntryBpm(nextPattern, nextEntry));
     setArrangementIndex(nextIndex);
     setArrangementLoopsDone(0);
   }, [currentStep]);
@@ -151,14 +167,15 @@ export default function MobileApp() {
 
   function handlePlaySong() {
     if (arrangementEntries.length === 0) return;
-    const firstPattern = loadSavedPattern(arrangementEntries[0].patternName);
+    const firstEntry = arrangementEntries[0];
+    const firstPattern = loadSavedPattern(firstEntry.patternName);
     if (!firstPattern) {
-      setArrangementError(`Pattern "${arrangementEntries[0].patternName}" not found.`);
+      setArrangementError(`Pattern "${firstEntry.patternName}" not found.`);
       return;
     }
     setArrangementError('');
     prevStepRef.current = null;
-    setPatternState(firstPattern);
+    setPatternState(applyEntryBpm(firstPattern, firstEntry));
     setArrangementIndex(0);
     setArrangementLoopsDone(0);
     setIsArrangementPlaying(true);
@@ -223,6 +240,8 @@ export default function MobileApp() {
         onArchive={setRecordingArchived}
       />
 
+      <ViewModeToggle mode={viewMode} onChange={setViewMode} />
+
       <section className="drums-section">
         <div className="sequencer-section__header">
           <h2 className="drums-section__heading">
@@ -232,32 +251,38 @@ export default function MobileApp() {
           <KitSelector kitId={kitId} isLoading={isKitLoading} onSelect={selectKit} />
         </div>
 
-        <PromptBar onGenerate={handleLoadPattern} />
-        <LibraryBrowser onLoad={handleLoadPattern} />
+        {viewMode === VIEW_MODES.JAM && (
+          <>
+            <PromptBar onGenerate={handleLoadPattern} />
+            <LibraryBrowser onLoad={handleLoadPattern} />
 
-        <div className="section-frame">
-          <h3 className="section-frame__heading">Build a Beat</h3>
-          <PatternManager
-            pattern={pattern}
-            onLoad={handleLoadPattern}
-            onClear={handleClearPattern}
-            canUndo={patternHistory.length > 0}
-            onUndo={handleUndo}
+            <div className="section-frame">
+              <h3 className="section-frame__heading">Build a Beat</h3>
+              <PatternManager
+                pattern={pattern}
+                onLoad={handleLoadPattern}
+                onClear={handleClearPattern}
+                canUndo={patternHistory.length > 0}
+                onUndo={handleUndo}
+              />
+            </div>
+          </>
+        )}
+
+        {viewMode === VIEW_MODES.SONGWRITING && (
+          <ArrangementEditor
+            entries={arrangementEntries}
+            onEntriesChange={setArrangementEntries}
+            loopArrangement={loopArrangement}
+            onLoopArrangementChange={setLoopArrangement}
+            onPlaySong={handlePlaySong}
+            onStopSong={handleStopSong}
+            isArrangementPlaying={isArrangementPlaying}
+            activeIndex={arrangementIndex}
+            activeLoopsDone={arrangementLoopsDone}
+            error={arrangementError}
           />
-        </div>
-
-        <ArrangementEditor
-          entries={arrangementEntries}
-          onEntriesChange={setArrangementEntries}
-          loopArrangement={loopArrangement}
-          onLoopArrangementChange={setLoopArrangement}
-          onPlaySong={handlePlaySong}
-          onStopSong={handleStopSong}
-          isArrangementPlaying={isArrangementPlaying}
-          activeIndex={arrangementIndex}
-          activeLoopsDone={arrangementLoopsDone}
-          error={arrangementError}
-        />
+        )}
 
         <Transport
           isPlaying={isPlaying}
@@ -271,11 +296,33 @@ export default function MobileApp() {
           styleDescription={pattern.style_description}
         />
 
+        <div className="sequencer__hint">
+          <span>Tap steps to cycle through:</span>
+          <span className="sequencer__hint-legend">
+            <span className="sequencer__hint-swatch" style={{ background: 'var(--step-off)' }} />
+            Off
+            <span
+              className="sequencer__hint-swatch"
+              style={{ background: 'color-mix(in srgb, var(--accent) 31%, var(--step-beat))' }}
+            />
+            Ghost
+            <span
+              className="sequencer__hint-swatch"
+              style={{ background: 'color-mix(in srgb, var(--accent) 75%, var(--step-beat))' }}
+            />
+            Normal
+            <span
+              className="sequencer__hint-swatch"
+              style={{ background: 'color-mix(in srgb, var(--accent) 98%, var(--step-beat))' }}
+            />
+            Accent
+          </span>
+        </div>
+
         <StepSequencer pattern={pattern} currentStep={currentStep} onChange={setPattern} />
       </section>
 
       <footer className="app__footer">
-        <p>Tap steps to program them (Off → Ghost → Normal → Accent).</p>
         <div className="app__footer-links">
           <FeedbackButton platform="Mobile" />
           <InfoDialog />

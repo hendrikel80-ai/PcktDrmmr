@@ -101,10 +101,8 @@ function buildTrackBytes(pattern) {
   return bytes;
 }
 
-export function patternToMidiBytes(pattern) {
-  const trackBytes = buildTrackBytes(pattern);
+function wrapAsMidiFile(trackBytes) {
   const trackLength = trackBytes.length;
-
   return new Uint8Array([
     0x4d, 0x54, 0x68, 0x64, // "MThd"
     0x00, 0x00, 0x00, 0x06, // header length
@@ -118,6 +116,67 @@ export function patternToMidiBytes(pattern) {
     trackLength & 0xff,
     ...trackBytes,
   ]);
+}
+
+export function patternToMidiBytes(pattern) {
+  return wrapAsMidiFile(buildTrackBytes(pattern));
+}
+
+// Concatenates a Song/Arrangement Mode song (see ArrangementEditor.jsx)
+// into ONE Standard MIDI File — each section is a {pattern, bpm, repeats}
+// entry: `pattern` is the full referenced pattern (steps/bars/time
+// signature), `bpm` is the entry's own tempo override (or the pattern's
+// own saved bpm), `repeats` is how many times it plays before the next
+// section. A tempo meta-event at the start of each section lets a single
+// MIDI track/file represent a song that mixes different tempos, instead of
+// needing one file per pattern.
+function buildArrangementTrackBytes(sections) {
+  const bytes = [];
+  let lastTick = 0;
+  let tickOffset = 0;
+
+  function pushEvent(tick, eventBytes) {
+    bytes.push(...writeVarLen(tick - lastTick));
+    bytes.push(...eventBytes);
+    lastTick = tick;
+  }
+
+  for (const { pattern, bpm, repeats } of sections) {
+    const totalSteps = pattern.bars * STEPS_PER_BAR;
+    const sectionTicks = totalSteps * TICKS_PER_STEP;
+
+    const microsecondsPerQuarter = Math.round(60000000 / (bpm || pattern.bpm || 120));
+    pushEvent(tickOffset, [
+      0xff,
+      0x51,
+      0x03,
+      (microsecondsPerQuarter >> 16) & 0xff,
+      (microsecondsPerQuarter >> 8) & 0xff,
+      microsecondsPerQuarter & 0xff,
+    ]);
+
+    const [numerator, denominator] = String(pattern.time_signature || '4/4')
+      .split('/')
+      .map(Number);
+    const denominatorPower = Math.round(Math.log2(denominator || 4));
+    pushEvent(tickOffset, [0xff, 0x58, 0x04, numerator || 4, denominatorPower, 24, 8]);
+
+    const events = collectNoteEvents(pattern); // ticks relative to one repeat, already sorted
+    for (let rep = 0; rep < repeats; rep++) {
+      const repeatBase = tickOffset + rep * sectionTicks;
+      for (const ev of events) {
+        pushEvent(repeatBase + ev.tick, [ev.status, ev.note, ev.velocity]);
+      }
+    }
+    tickOffset += sectionTicks * repeats;
+  }
+
+  pushEvent(tickOffset, [0xff, 0x2f, 0x00]);
+  return bytes;
+}
+
+export function arrangementToMidiBytes(sections) {
+  return wrapAsMidiFile(buildArrangementTrackBytes(sections));
 }
 
 function formatTimestamp(date = new Date()) {
@@ -134,9 +193,7 @@ function formatTimestamp(date = new Date()) {
 // auto-generated timestamp name with no chance to rename it. Not supported
 // on mobile browsers or Firefox/Safari, hence the fallback rather than a
 // hard requirement.
-export async function downloadPatternAsMidi(pattern, filename = `pocket-studio-beat-${formatTimestamp()}.mid`) {
-  const bytes = patternToMidiBytes(pattern);
-
+async function saveMidiBytes(bytes, filename) {
   if (typeof window.showSaveFilePicker === 'function') {
     try {
       const handle = await window.showSaveFilePicker({
@@ -163,4 +220,16 @@ export async function downloadPatternAsMidi(pattern, filename = `pocket-studio-b
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+export async function downloadPatternAsMidi(pattern, filename = `pocket-studio-beat-${formatTimestamp()}.mid`) {
+  await saveMidiBytes(patternToMidiBytes(pattern), filename);
+}
+
+// Exports a whole Song/Arrangement Mode song (see ArrangementEditor.jsx) as
+// one MIDI file — `sections` is `[{pattern, bpm, repeats}, ...]`, already
+// resolved from the song's entries (missing patterns filtered out by the
+// caller).
+export async function downloadArrangementAsMidi(sections, filename = `pocket-studio-song-${formatTimestamp()}.mid`) {
+  await saveMidiBytes(arrangementToMidiBytes(sections), filename);
 }
