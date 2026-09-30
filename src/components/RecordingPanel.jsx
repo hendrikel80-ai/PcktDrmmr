@@ -162,9 +162,13 @@ export default function RecordingPanel({
   // between passes goes through Web Audio's AudioBufferSourceNode instead,
   // which loops at an exact sample position (loopEnd) with no restart gap.
   // loopTrimOverrides (id -> seconds) is the user-adjustable point that
-  // sample-accurate loop restarts at; naturalDurations (id -> seconds) is
-  // each recording's full decoded length, known only once decoded.
+  // sample-accurate loop restarts at; loopStartOverrides (id -> seconds) is
+  // the equally user-adjustable point it restarts FROM — both draggable
+  // directly on the LoopWaveform below (see handlePointerDown/Move there);
+  // naturalDurations (id -> seconds) is each recording's full decoded
+  // length, known only once decoded.
   const [loopTrimOverrides, setLoopTrimOverrides] = useState({});
+  const [loopStartOverrides, setLoopStartOverrides] = useState({});
   const [naturalDurations, setNaturalDurations] = useState({});
   const [playingLoopId, setPlayingLoopId] = useState(null);
   const previewCtxRef = useRef(null);
@@ -381,14 +385,45 @@ export default function RecordingPanel({
     return natural ?? null;
   }
 
+  // The un-overridden loop-start point a recording would use — same
+  // reasoning as getTrimSeconds' fallback chain above, mirrored for the
+  // start side: a "Loop recording" take always starts at the fixed
+  // encoder-lead-in offset, anything else falls back to the detected
+  // leading-silence point.
+  function rawLoopStartSeconds(r) {
+    return r.loopDurationSeconds != null ? FIXED_LOOP_LEAD_IN_SECONDS : (leadingSilenceRef.current[r.id] ?? 0);
+  }
+
+  function getLoopStartSeconds(r) {
+    const override = loopStartOverrides[r.id];
+    return override != null ? override : rawLoopStartSeconds(r);
+  }
+
+  // Shared clamping for both the drag handles on LoopWaveform and the trim
+  // NumberStepper below — keeps loopStart/loopEnd from ever crossing each
+  // other (a minimum 100ms segment) regardless of which end the user is
+  // currently moving.
+  function handleLoopStartSecondsChange(r, seconds) {
+    const natural = naturalDurations[r.id];
+    if (natural == null) return;
+    const currentEnd = getTrimSeconds(r) ?? natural;
+    const clamped = Math.max(0, Math.min(seconds, currentEnd - 0.1));
+    setLoopStartOverrides((o) => ({ ...o, [r.id]: clamped }));
+  }
+
+  function handleLoopEndSecondsChange(r, seconds) {
+    const natural = naturalDurations[r.id];
+    if (natural == null) return;
+    const currentStart = getLoopStartSeconds(r);
+    const clamped = Math.max(currentStart + 0.1, Math.min(natural, seconds));
+    setLoopTrimOverrides((o) => ({ ...o, [r.id]: clamped }));
+  }
+
   // Takes the final value directly (milliseconds, converted to seconds
   // here), matching NumberStepper's onChange contract — its own hold/type-
   // in logic already does the stepping/clamping/rounding.
   function handleTrimMsChange(r, ms) {
-    const natural = naturalDurations[r.id];
-    if (natural == null) return;
-    const seconds = Math.max(0.1, Math.min(natural, ms / 1000));
-    setLoopTrimOverrides((o) => ({ ...o, [r.id]: seconds }));
+    handleLoopEndSecondsChange(r, ms / 1000);
   }
 
   // Schedules one more non-looping copy of the loop segment right after
@@ -434,15 +469,19 @@ export default function RecordingPanel({
   // played with — factored out so LoopWaveform (below) can draw markers at
   // PRECISELY what handlePlayLoopPreview uses, not an approximation of it.
   function computeLoopBounds(r, buffer) {
-    // loopStart never comes from waveform scanning for a "Loop recording"
-    // take — see FIXED_LOOP_LEAD_IN_SECONDS's doc for why that was the bug.
+    // loopStart defaults to rawLoopStartSeconds (never waveform-scanned for
+    // a "Loop recording" take — see FIXED_LOOP_LEAD_IN_SECONDS's doc for
+    // why that was the bug), but the user can now drag it directly on the
+    // LoopWaveform below (see handleLoopStartSecondsChange), same as
+    // loopEnd already could via the trim stepper.
     const rawStart = r.loopDurationSeconds != null ? FIXED_LOOP_LEAD_IN_SECONDS : (leadingSilenceRef.current[r.id] ?? 0);
     const defaultEnd =
       r.loopDurationSeconds != null
         ? Math.min(rawStart + r.loopDurationSeconds, buffer.duration)
         : (trailingSignalEndRef.current[r.id] ?? buffer.duration);
     const trim = loopTrimOverrides[r.id] ?? defaultEnd;
-    const loopStart = Math.max(0, Math.min(rawStart, trim - 0.05));
+    const start = loopStartOverrides[r.id] ?? rawStart;
+    const loopStart = Math.max(0, Math.min(start, trim - 0.05));
     const loopEnd = Math.min(Math.max(trim, loopStart + 0.1), buffer.duration);
     return { loopStart, loopEnd };
   }
@@ -719,7 +758,15 @@ export default function RecordingPanel({
                             (() => {
                               const buffer = decodedBuffersRef.current[r.id];
                               const { loopStart, loopEnd } = computeLoopBounds(r, buffer);
-                              return <LoopWaveform buffer={buffer} loopStart={loopStart} loopEnd={loopEnd} />;
+                              return (
+                                <LoopWaveform
+                                  buffer={buffer}
+                                  loopStart={loopStart}
+                                  loopEnd={loopEnd}
+                                  onLoopStartChange={(seconds) => handleLoopStartSecondsChange(r, seconds)}
+                                  onLoopEndChange={(seconds) => handleLoopEndSecondsChange(r, seconds)}
+                                />
+                              );
                             })()}
                         </>
                       )}

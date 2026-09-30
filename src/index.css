@@ -128,7 +128,9 @@ input[type='range']::-moz-range-thumb {
   background: transparent;
   border: none;
   color: var(--text-dim);
+  font-family: inherit;
   font-size: 0.85rem;
+  line-height: inherit;
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
@@ -830,6 +832,13 @@ input[type='range']::-moz-range-thumb {
   width: 10px;
   height: 10px;
   border-radius: 2px;
+}
+
+.loop-waveform__hint {
+  margin-left: auto;
+  font-size: 0.7rem;
+  font-style: italic;
+  color: var(--text-dim);
 }
 
 .recording-panel__rename-form {
