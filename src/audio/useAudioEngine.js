@@ -93,10 +93,11 @@ function readStoredDrumVolume() {
 
 // Which recordings are archived (hidden from RecordingPanel.jsx's main
 // list, but never deleted) — keyed by filename, not by the `id` field on a
-// recording entry, since `id` is regenerated every session, while filename
-// is the one thing that survives a restart. A rename (see renameRecording
-// below) moves an archived entry's key from its old filename to the new
-// one so archiving doesn't silently reset.
+// recording entry, since `id` is regenerated every session (see
+// list_recordings' effect below and toggleRecording's three save
+// branches), while filename is the one thing that survives a restart. A
+// rename (see renameRecording below) moves an archived entry's key from
+// its old filename to the new one so archiving doesn't silently reset.
 const ARCHIVED_RECORDINGS_STORAGE_KEY = 'pocket-studio:archived-recordings';
 
 function readArchivedRecordingFilenames() {
@@ -126,7 +127,7 @@ export function useAudioEngine(pattern) {
   const archivedFilenamesRef = useRef(readArchivedRecordingFilenames());
   // Read inside ensureEngine (a useCallback with an empty dep array, so it
   // can't close over the `drumVolume` state directly) to seed the drumGain
-  // node's initial value — kept in sync by setDrumVolume further down.
+  // node's initial value — kept in sync by the effect further down.
   const drumVolumeRef = useRef(readStoredDrumVolume());
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentStep, setCurrentStep] = useState(-1);
@@ -138,6 +139,119 @@ export function useAudioEngine(pattern) {
   const [guitarModelInfo, setGuitarModelInfo] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordings, setRecordings] = useState([]);
+  // Counts merge-fallback saves still running in the background after Stop
+  // was pressed (see toggleRecording's mergeRecordings(...).then(...)
+  // branch, deliberately not awaited so the UI doesn't freeze on a longer
+  // take). Closing the app while this is above zero would silently lose
+  // that take — see the beforeunload/onCloseRequested guard below, which
+  // reads this via a ref to stay stable across renders.
+  const [pendingSaveCount, setPendingSaveCount] = useState(0);
+  const pendingSaveCountRef = useRef(0);
+  useEffect(() => {
+    pendingSaveCountRef.current = pendingSaveCount;
+  }, [pendingSaveCount]);
+
+  // Warns instead of silently losing a take if the app is closed while a
+  // merge-fallback save (see pendingSaveCount above) is still running in
+  // the background — registered once, reading the ref so it always sees
+  // the current count without re-subscribing on every change.
+  useEffect(() => {
+    function handleBeforeUnload(e) {
+      if (pendingSaveCountRef.current > 0) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // The Tauri desktop window's own close button doesn't go through
+    // beforeunload — it has to be intercepted separately via the window API.
+    let unlistenCloseRequested = null;
+    if (isTauriRuntime()) {
+      const { getCurrentWindow } = window.__TAURI__.window;
+      const { confirm } = window.__TAURI__.dialog;
+      getCurrentWindow()
+        .onCloseRequested(async (event) => {
+          if (pendingSaveCountRef.current > 0) {
+            // window.confirm() is unreliable inside Tauri's native window
+            // on several platforms (can silently no-op instead of showing
+            // a dialog) — use the dialog plugin's confirm() instead, same
+            // reasoning as RecordingPanel.jsx's delete confirmation.
+            const closeAnyway = await confirm(
+              'A recording is still being saved. Closing now may lose it — close anyway?',
+              { title: 'Pocket Studio', kind: 'warning' }
+            );
+            if (!closeAnyway) {
+              event.preventDefault();
+            }
+          }
+        })
+        .then((unlisten) => {
+          unlistenCloseRequested = unlisten;
+        })
+        .catch((err) => {
+          console.error('Registering the close-requested guard failed:', err);
+        });
+    }
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      unlistenCloseRequested?.();
+    };
+  }, []);
+
+  // Recordings live only in this component's state, so without this the
+  // list looked empty after every restart even though the files themselves
+  // were sitting untouched in Downloads the whole time — see
+  // list_recordings' doc comment in lib.rs. Reads each file's bytes back
+  // via read_native_recording (already the efficient raw-IPC version, see
+  // its own doc comment) to build the same kind of playable blob URL a
+  // freshly finished take gets; fine at the scale of a personal practice
+  // folder, but would need to become lazy (load on demand instead of all
+  // at once) if this ever needs to handle hundreds of takes.
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+    let cancelled = false;
+
+    (async () => {
+      let entries;
+      try {
+        entries = await window.__TAURI__.core.invoke('list_recordings');
+      } catch (err) {
+        console.error('Listing existing recordings failed:', err);
+        return;
+      }
+
+      const loaded = await Promise.all(
+        entries.map(async (entry) => {
+          try {
+            const bytes = await window.__TAURI__.core.invoke('read_native_recording', { path: entry.path });
+            const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: 'audio/wav' }));
+            return {
+              id: `${entry.modifiedMs}-${entry.filename}`,
+              path: entry.path,
+              url,
+              filename: entry.filename,
+              createdAt: entry.modifiedMs,
+              archived: archivedFilenamesRef.current.has(entry.filename),
+            };
+          } catch (err) {
+            console.error(`Reading existing recording "${entry.filename}" failed:`, err);
+            return null;
+          }
+        })
+      );
+
+      if (!cancelled) {
+        setRecordings((prev) => [...loaded.filter(Boolean), ...prev]);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const [loopRecording, setLoopRecording] = useState(false);
   const [drumVolume, setDrumVolumeState] = useState(readStoredDrumVolume);
   const [syncOffsetMs, setSyncOffsetMsState] = useState(readStoredSyncOffset);
@@ -635,16 +749,26 @@ export function useAudioEngine(pattern) {
         // before this change, then save the result to disk too so it's
         // just as deletable/playable as the native-drums case above.
         // Can take a moment on a longer take — don't block the UI on it.
+        // pendingSaveCount tracks that this is still in flight (see its
+        // declaration above) so the UI can warn against closing the app
+        // right now, and decrements in .finally() so it clears whether the
+        // save succeeds or fails.
+        setPendingSaveCount((n) => n + 1);
         mergeRecordings(blob, nativePath, trimSeconds, syncOffsetMs, elapsedSeconds)
           .then(async (mergedBlob) => {
             const mergedFilename = `pocket-studio-riff-${formatTimestamp()}${loopSuffix}-mix.mp3`;
             const url = URL.createObjectURL(mergedBlob);
             let savedPath = null;
             try {
-              const mergedBytes = Array.from(new Uint8Array(await mergedBlob.arrayBuffer()));
-              savedPath = await window.__TAURI__.core.invoke('save_recording_bytes', {
-                bytes: mergedBytes,
-                filename: mergedFilename,
+              // Passed as a raw binary IPC payload (not `{ bytes: [...] }`)
+              // so a multi-minute take doesn't cross into Rust as a JSON
+              // array of millions of individual numbers — see
+              // save_recording_bytes' doc comment in lib.rs. The filename
+              // travels as a header since the raw body leaves no room for
+              // other fields.
+              const mergedBytes = new Uint8Array(await mergedBlob.arrayBuffer());
+              savedPath = await window.__TAURI__.core.invoke('save_recording_bytes', mergedBytes, {
+                headers: { 'x-filename': mergedFilename },
               });
             } catch (err) {
               console.error('Saving the merged recording to disk failed:', err);
@@ -656,6 +780,9 @@ export function useAudioEngine(pattern) {
           })
           .catch((err) => {
             console.error('mergeRecordings failed:', err);
+          })
+          .finally(() => {
+            setPendingSaveCount((n) => n - 1);
           });
       } else {
         // Pure browser mode (no Tauri/native chain at all) — the
@@ -881,6 +1008,7 @@ export function useAudioEngine(pattern) {
     recordingSupported: Recorder.isSupported(),
     isRecording,
     recordings,
+    isSavingRecording: pendingSaveCount > 0,
     toggleRecording,
     playCountInClick,
     deleteRecording,

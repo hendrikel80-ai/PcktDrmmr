@@ -12,7 +12,21 @@ thread_local std::string g_last_error;
 struct NamInstance
 {
   std::unique_ptr<nam::DSP> dsp;
+  // See nam_process's use of this: counts consecutive process() failures
+  // so a model that throws deterministically on every block gets cut off
+  // instead of paying C++ exception unwind cost on every single audio
+  // callback.
+  int consecutive_process_errors = 0;
 };
+
+// After this many consecutive nam_process() exceptions on the same
+// handle, stop calling dsp->process() for it entirely (silence only)
+// until it's reloaded. A single throw is an acceptable, self-correcting
+// glitch (see nam_process); a model that fails on every block is a
+// deterministic failure, and retrying it every ~1.45ms block would mean
+// paying the (not zero-cost) throw/unwind machinery on every callback —
+// a sustained deadline-miss risk, not a one-off blip.
+constexpr int kMaxConsecutiveProcessErrors = 8;
 } // namespace
 
 extern "C"
@@ -64,6 +78,17 @@ extern "C"
     if (!handle)
       return;
     auto* inst = static_cast<NamInstance*>(handle);
+
+    if (inst->consecutive_process_errors >= kMaxConsecutiveProcessErrors)
+    {
+      // Given up on this handle — see kMaxConsecutiveProcessErrors above.
+      for (int i = 0; i < num_frames; ++i)
+      {
+        output[i] = 0.0f;
+      }
+      return;
+    }
+
     // DSP::process() wants NAM_SAMPLE** (one pointer per channel); we only
     // ever run mono. NAM_SAMPLE is float here (compiled with
     // -DNAM_SAMPLE_FLOAT, see build.rs) so no per-sample conversion is
@@ -71,7 +96,27 @@ extern "C"
     // non-const signature.
     NAM_SAMPLE* in_ch[1] = {const_cast<NAM_SAMPLE*>(input)};
     NAM_SAMPLE* out_ch[1] = {output};
-    inst->dsp->process(in_ch, out_ch, num_frames);
+    try
+    {
+      inst->dsp->process(in_ch, out_ch, num_frames);
+      inst->consecutive_process_errors = 0;
+    }
+    catch (...)
+    {
+      // This runs on the real-time ASIO callback thread (see
+      // asio_engine.rs) — an exception unwinding across this extern "C"
+      // boundary is undefined behavior, not a normal error path. A
+      // model that throws mid-stream (corrupt weights discovered lazily,
+      // a dimension mismatch Reset() didn't catch, ...) gets silence for
+      // this buffer instead of taking down the audio thread. This is what
+      // nam_shim.h's "no exceptions can escape" doc comment already
+      // promises; the implementation just didn't keep that promise here.
+      ++inst->consecutive_process_errors;
+      for (int i = 0; i < num_frames; ++i)
+      {
+        output[i] = 0.0f;
+      }
+    }
   }
 
   double nam_expected_sample_rate(NamHandle handle)

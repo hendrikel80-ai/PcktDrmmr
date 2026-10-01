@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { isTauriRuntime } from '../utils/platform';
 import { isTextEntryTarget } from '../utils/isTextEntryTarget';
 import NumberStepper from './NumberStepper';
 import LoopWaveform from './LoopWaveform';
@@ -135,6 +136,7 @@ function WaveBars({ active }) {
 export default function RecordingPanel({
   supported,
   isRecording,
+  isSaving,
   recordings,
   bpm,
   timeSignature,
@@ -626,6 +628,12 @@ export default function RecordingPanel({
         </span>
       )}
 
+      {isSaving && (
+        <span className="recording-panel__live">
+          Saving your last take — please don't close the app yet …
+        </span>
+      )}
+
       {onSyncOffsetChange && (
         <div className="recording-panel__sync">
           <label
@@ -864,7 +872,34 @@ export default function RecordingPanel({
                           <button
                             type="button"
                             className="recording-panel__delete"
-                            onClick={() => onDelete(r.id)}
+                            onClick={async () => {
+                              // Every removal is permanent from the user's point of
+                              // view, not just the ones backed by a file: mobile and
+                              // pure-browser-mode takes only ever exist as an in-memory
+                              // blob (no `path`), so there's no Recycle Bin to fall
+                              // back on for those either — a stray tap must not be
+                              // able to destroy the only copy of a take, on-disk or not.
+                              const message = r.path
+                                ? `Delete "${r.filename}"? It will be moved to the Recycle Bin.`
+                                : `Remove "${r.filename}"? This cannot be undone.`;
+                              // window.confirm() is unreliable inside Tauri's native
+                              // window on several platforms — it can silently resolve
+                              // without ever showing a dialog instead of actually
+                              // asking (a known Tauri/webview limitation, not specific
+                              // to this app). Use the dialog plugin's own confirm()
+                              // there instead — already a dependency of this app (see
+                              // NativeGuitarEngine.js's file-open dialog) — and keep
+                              // window.confirm() for plain-browser/mobile-web, where it
+                              // works fine outside a Tauri window.
+                              const confirmed = isTauriRuntime()
+                                ? await window.__TAURI__.dialog.confirm(message, {
+                                    title: 'Pocket Studio',
+                                    kind: 'warning',
+                                  })
+                                : window.confirm(message);
+                              if (!confirmed) return;
+                              onDelete(r.id);
+                            }}
                             title={r.path ? 'Deletes the file from disk' : 'Remove from the list'}
                           >
                             🗑

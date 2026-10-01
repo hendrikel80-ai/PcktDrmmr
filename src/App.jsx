@@ -77,6 +77,7 @@ export default function App() {
     recordingSupported,
     isRecording,
     recordings,
+    isSavingRecording,
     toggleRecording,
     playCountInClick,
     deleteRecording,
@@ -341,6 +342,7 @@ export default function App() {
       <RecordingPanel
         supported={recordingSupported}
         isRecording={isRecording}
+        isSaving={isSavingRecording}
         recordings={recordings}
         bpm={pattern.bpm}
         timeSignature={pattern.time_signature}
