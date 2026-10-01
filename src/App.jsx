@@ -21,6 +21,7 @@ import AsioSettingsDialog from './components/AsioSettingsDialog';
 import InfoDialog from './components/InfoDialog';
 import FeedbackButton from './components/FeedbackButton';
 import { isTauriRuntime } from './utils/platform';
+import { openExternal } from './utils/openExternal';
 import { isTextEntryTarget } from './utils/isTextEntryTarget';
 import logo from './assets/pocket-studio-logo.png';
 import drumkitIcon from './assets/icon-drumkit.png';
@@ -368,7 +369,11 @@ export default function App() {
         {viewMode === VIEW_MODES.JAM && (
           <>
             <PromptBar onGenerate={handleLoadPattern} />
-            <LibraryBrowser onLoad={handleLoadPattern} />
+
+            <div className="section-frame">
+              <h3 className="section-frame__heading">Beat Library</h3>
+              <LibraryBrowser onLoad={handleLoadPattern} />
+            </div>
 
             <div className="section-frame">
               <h3 className="section-frame__heading">Build a Beat</h3>
@@ -440,6 +445,15 @@ export default function App() {
         <div className="app__footer-links">
           <FeedbackButton platform="Desktop" />
           <InfoDialog />
+          <a
+            href="https://ko-fi.com/Jack_Bello_Industries"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="app__footer-info"
+            onClick={(e) => openExternal(e, 'https://ko-fi.com/Jack_Bello_Industries')}
+          >
+            Keep the Beats Alive
+          </a>
         </div>
       </footer>
     </div>

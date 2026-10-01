@@ -17,6 +17,7 @@ import RecordingPanel from './RecordingPanel';
 import InfoDialog from './InfoDialog';
 import FeedbackButton from './FeedbackButton';
 import { readStoredViewMode, writeViewMode, VIEW_MODES } from '../utils/viewMode';
+import { openExternal } from '../utils/openExternal';
 import logo from '../assets/pocket-studio-logo.png';
 import drumkitIcon from '../assets/icon-drumkit.png';
 
@@ -254,7 +255,11 @@ export default function MobileApp() {
         {viewMode === VIEW_MODES.JAM && (
           <>
             <PromptBar onGenerate={handleLoadPattern} />
-            <LibraryBrowser onLoad={handleLoadPattern} />
+
+            <div className="section-frame">
+              <h3 className="section-frame__heading">Beat Library</h3>
+              <LibraryBrowser onLoad={handleLoadPattern} />
+            </div>
 
             <div className="section-frame">
               <h3 className="section-frame__heading">Build a Beat</h3>
@@ -326,6 +331,15 @@ export default function MobileApp() {
         <div className="app__footer-links">
           <FeedbackButton platform="Mobile" />
           <InfoDialog />
+          <a
+            href="https://ko-fi.com/Jack_Bello_Industries"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="app__footer-info"
+            onClick={(e) => openExternal(e, 'https://ko-fi.com/Jack_Bello_Industries')}
+          >
+            Keep the Beats Alive
+          </a>
         </div>
       </footer>
     </div>
