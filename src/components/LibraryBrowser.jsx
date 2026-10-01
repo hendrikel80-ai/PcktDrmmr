@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
+import { loadBeatLibrary } from '../data/beatLibrary';
 
 // Aktives Durchsuchen/Laden aus der Beat-Library (Genre -> Subgenre ->
 // Pattern), als Alternative zur heuristischen Suche in PromptBar.jsx — auf
 // Nutzerwunsch, nicht nur implizit über die Prompt-Suchleiste ladbar.
-// Lädt einmalig die komplette Library (klein genug für einen Request, siehe
-// server/library.js's listLibrary()) und filtert rein client-seitig.
+// Die Library ist ins Frontend gebündelt (src/data/beatLibraryData.js),
+// braucht also keinen Server und wird rein client-seitig gefiltert.
 export default function LibraryBrowser({ onLoad }) {
   const [entries, setEntries] = useState([]);
   const [status, setStatus] = useState('loading'); // loading | error | ready
@@ -15,11 +16,10 @@ export default function LibraryBrowser({ onLoad }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/library')
-      .then((r) => r.json())
-      .then((data) => {
+    loadBeatLibrary()
+      .then((index) => {
         if (cancelled) return;
-        setEntries(Array.isArray(data.entries) ? data.entries : []);
+        setEntries(index);
         setStatus('ready');
       })
       .catch((err) => {
@@ -45,13 +45,13 @@ export default function LibraryBrowser({ onLoad }) {
 
   function handleLoad() {
     const entry = entries[Number(selectedIndex)];
-    if (entry) onLoad(entry.pattern);
+    if (entry) onLoad(structuredClone(entry.pattern));
   }
 
   // Loading, or nothing generated yet (fresh checkout before
   // `npm run generate-library` has ever run) — stay out of the way rather
   // than showing empty dropdowns. Error must be checked BEFORE the
-  // empty-entries case, or a failed fetch (e.g. backend not running) would
+  // empty-entries case, or a failed load would
   // silently render nothing instead of telling the user why.
   if (status === 'loading') return null;
   if (status === 'error') {

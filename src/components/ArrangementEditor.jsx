@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { listPatterns, loadPattern, savePattern } from '../data/patternStorage';
+import { loadBeatLibrary } from '../data/beatLibrary';
 import {
   deleteArrangement,
   listArrangements,
@@ -39,7 +40,7 @@ export default function ArrangementEditor({
 
   // Second "lane" for building a song directly from the curated Beat
   // Library (see LibraryBrowser.jsx, same genre -> subgenre -> pattern
-  // cascade and /api/library fetch), alongside the "own saved patterns"
+  // cascade and bundled library data), alongside the "own saved patterns"
   // lane above. A library pattern has no name of its own to reference by
   // (unlike a saved pattern), so adding one first silently saves a copy
   // into patternStorage under a generated, descriptive name — reusing the
@@ -55,11 +56,10 @@ export default function ArrangementEditor({
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/library')
-      .then((r) => r.json())
-      .then((data) => {
+    loadBeatLibrary()
+      .then((index) => {
         if (cancelled) return;
-        setLibraryEntries(Array.isArray(data.entries) ? data.entries : []);
+        setLibraryEntries(index);
         setLibraryStatus('ready');
       })
       .catch((err) => {

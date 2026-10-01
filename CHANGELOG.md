@@ -47,6 +47,15 @@ siehe dafür die Git-Historie.
 - Aufnahmen werden jetzt als MP3 statt WAV gespeichert (nativer ASIO-Pfad,
   Browser-Merge-Pfad und Mobile) — 192 kbps. Ältere WAV-Aufnahmen bleiben
   in der Liste sichtbar/löschbar.
+- Beat-Library ist jetzt ins Frontend gebündelt statt über `/api/library`
+  geladen (Route entfernt) — Library-Browser, Song-Builder und
+  Library-Treffer in "Generate a Beat" funktionieren ohne laufenden Server,
+  also auch im installierten Desktop-Programm.
+- KI-Backend-Adresse über `VITE_API_BASE_URL` konfigurierbar. Ohne sie
+  zeigt das installierte Programm "Generate a Beat" nur mit
+  Library-Treffern und "Sound Like" als nicht verfügbar an, statt in einen
+  Netzwerkfehler zu laufen. Fehlermeldungen für Endnutzer ohne
+  Entwickler-Hinweise (`npm run dev:full` nur noch im Dev-Modus).
 
 ### Behoben
 - "Loop recording" wurde beim nativen ASIO-Aufnahmepfad (Drums bereits
@@ -66,3 +75,7 @@ siehe dafür die Git-Historie.
 - `kit_id` beim Laden eines Drum-Kits wird jetzt genauso validiert wie die
   übrigen IPC-Pfad-Parameter.
 - Bekannte npm-Sicherheitslücken (qs/body-parser/express) gefixt.
+- KI-Endpunkte (`/api/generate-pattern`, `/api/sound-like`) mit
+  optionalem Shared-Secret-Token (`API_ACCESS_TOKEN`) und Rate-Limit
+  (Standard 20 Anfragen / 10 Minuten) geschützt; Backend bindet nur noch an
+  `127.0.0.1` statt an alle Netzwerk-Schnittstellen.

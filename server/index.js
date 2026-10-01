@@ -4,14 +4,26 @@ import cors from 'cors';
 import { generatePattern } from './generatePattern.js';
 import { soundLike } from './soundLike.js';
 import { UpstreamError } from './aiProvider.js';
-import { findLibraryMatch, listLibrary } from './library.js';
+import { findLibraryMatch } from './library.js';
 import { validatePattern } from '../src/data/validatePattern.js';
+import { requireApiToken } from './auth.js';
+import { rateLimit } from './rateLimit.js';
 
 // Eigener Variablenname statt PORT: unter `npm run dev:full` (concurrently)
 // erben sowohl der Vite- als auch der Backend-Prozess dieselbe Shell-Umgebung
 // — eine generische PORT-Variable (z.B. vom Preview-Tool für Vites autoPort
 // gesetzt) würde sonst versehentlich auch dieses Backend umleiten.
 const PORT = process.env.API_PORT || 3001;
+// Explizit an localhost binden statt der Node-Default (alle
+// Netzwerk-Schnittstellen) — sonst wäre dieser Server, der pro Anfrage
+// echtes Geld bei Anthropic/DeepSeek kostet, für jedes andere Gerät im
+// selben WLAN direkt erreichbar, jedes Mal wenn "npm run dev:full" läuft,
+// nicht erst über einen künftigen Tunnel. Mobile-Zugriff läuft weiterhin
+// über Vites Dev-Server (der bleibt netzwerkweit erreichbar, siehe
+// allowedHosts in vite.config.js), der /api-Anfragen serverseitig an
+// diesen Prozess weiterreicht — das bleibt Loopback-zu-Loopback auf
+// demselben Rechner und ist von dieser Einschränkung nicht betroffen.
+const HOST = process.env.API_HOST || '127.0.0.1';
 const MAX_PROMPT_LENGTH = 300;
 const MAX_REFERENCE_PATTERNS = 5;
 
@@ -19,7 +31,28 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.post('/api/generate-pattern', async (req, res) => {
+// Nur auf den beiden Routen, die tatsächlich eine kostenpflichtige
+// KI-API aufrufen — /api/health ist rein lokal und kostenlos, der braucht
+// weder Token noch Limit (die Beat-Library ist im Frontend gebündelt, siehe
+// src/data/beatLibraryData.js). Ein gemeinsamer Limiter
+// für beide Routen, damit sich Kosten nicht durch Aufteilen auf beide
+// Endpunkte umgehen lassen.
+//
+// Konfigurierbar statt hart codiert: Der Zähler bucket-t nach IP-Adresse
+// (siehe rateLimit.js), aber ein Tunnel wie Tailscale Funnel reicht die
+// echte Adresse externer Besucher nicht durch — alle von außen kommenden
+// Anfragen landen dann effektiv im selben Bucket. Aus "20 pro Person pro
+// 10 Minuten" wird dadurch "20 für alle Freunde zusammen pro 10 Minuten".
+// Vor dem ersten Freischalten über einen Tunnel also bewusst RATE_LIMIT_MAX
+// hochsetzen (siehe .env.example) statt sich von der Standardeinstellung
+// überraschen zu lassen.
+const aiRateLimit = rateLimit({
+  windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 10 * 60 * 1000,
+  max: Number(process.env.RATE_LIMIT_MAX) || 20,
+});
+const aiGuards = [requireApiToken, aiRateLimit];
+
+app.post('/api/generate-pattern', aiGuards, async (req, res) => {
   const prompt = typeof req.body?.prompt === 'string' ? req.body.prompt.trim() : '';
 
   if (!prompt) {
@@ -60,7 +93,7 @@ app.post('/api/generate-pattern', async (req, res) => {
   }
 });
 
-app.post('/api/sound-like', async (req, res) => {
+app.post('/api/sound-like', aiGuards, async (req, res) => {
   const query = typeof req.body?.query === 'string' ? req.body.query.trim() : '';
 
   if (!query) {
@@ -82,16 +115,10 @@ app.post('/api/sound-like', async (req, res) => {
   }
 });
 
-// Fürs aktive Durchsuchen/Laden aus der Beat-Library (LibraryBrowser.jsx),
-// statt nur über die heuristische Prompt-Suche in /api/generate-pattern.
-app.get('/api/library', (_req, res) => {
-  res.json({ entries: listLibrary() });
-});
-
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, hasApiKey: Boolean(process.env.ANTHROPIC_API_KEY) });
 });
 
-app.listen(PORT, () => {
-  console.log(`Pocket Studio API running on http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`Pocket Studio API running on http://${HOST}:${PORT}`);
 });

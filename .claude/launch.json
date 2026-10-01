@@ -14,6 +14,13 @@
       "runtimeArgs": ["run", "dev:full"],
       "port": 5173,
       "autoPort": true
+    },
+    {
+      "name": "pocket-studio-preview-build",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "preview", "--", "--port", "4173"],
+      "port": 4173,
+      "autoPort": true
     }
   ]
 }

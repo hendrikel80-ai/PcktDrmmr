@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import ampIcon from '../assets/icon-amp.png';
+import { apiHeaders, apiUrl, backendUnreachableMessage, isAiBackendAvailable } from '../utils/apiAuth';
 import { openExternal } from '../utils/openExternal';
 
 // "Sound Like": enter a musician/band, Claude researches (web search
@@ -33,17 +34,22 @@ export default function SoundLike() {
     setErrorMessage('');
 
     try {
-      const response = await fetch('/api/sound-like', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: trimmed }),
-      });
+      let response;
+      try {
+        response = await fetch(apiUrl('/api/sound-like'), {
+          method: 'POST',
+          headers: apiHeaders(),
+          body: JSON.stringify({ query: trimmed }),
+        });
+      } catch {
+        throw new Error(backendUnreachableMessage('no response'));
+      }
 
       let data;
       try {
         data = await response.json();
       } catch {
-        throw new Error(`Server unreachable (status ${response.status}). Is the backend running?`);
+        throw new Error(backendUnreachableMessage(response.status));
       }
 
       if (!response.ok) {
@@ -60,6 +66,22 @@ export default function SoundLike() {
       setStatus('error');
       setErrorMessage(err.message);
     }
+  }
+
+  // Ohne erreichbares KI-Backend (installiertes Programm ohne
+  // VITE_API_BASE_URL) gibt es hier nichts zu tun — vorab erklären statt
+  // den Nutzer in einen Netzwerkfehler laufen zu lassen.
+  if (!isAiBackendAvailable()) {
+    return (
+      <div className="generation-box">
+        <div className="generation-box__heading">
+          <span>Make me Sound Like</span>
+        </div>
+        <p className="sound-like__unavailable">
+          Needs the online AI service, which isn't available in this version yet.
+        </p>
+      </div>
+    );
   }
 
   return (
