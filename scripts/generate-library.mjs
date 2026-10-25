@@ -144,6 +144,7 @@ async function run() {
   for (const [genreSlug, genre] of Object.entries(LIBRARY_TAXONOMY)) {
     for (const [subgenreSlug, subgenre] of Object.entries(genre.subgenres)) {
       if (!slugMatches(genreSlug, subgenreSlug, args.genre, args.subgenre)) continue;
+      if (subgenre.variations.length === 0) continue; // handgepflegt, nichts zu generieren
 
       const dir = join(LIBRARY_ROOT, genreSlug, subgenreSlug);
       mkdirSync(dir, { recursive: true });

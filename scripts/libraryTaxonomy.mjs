@@ -467,4 +467,18 @@ export const LIBRARY_TAXONOMY = {
       },
     },
   },
+  transitions: {
+    label: 'Transitions',
+    aliases: ['empty bar', 'empty bars', 'leerer takt'],
+    subgenres: {
+      'empty-bar': {
+        label: 'Empty Bar',
+        aliases: ['empty bar', 'empty bars', 'leerer takt'],
+        bpmRange: [40, 300],
+        // Handgepflegter Platzhalter, keine KI-Variationen (siehe
+        // scripts/generate-library.mjs, überspringt Subgenres ohne Variationen).
+        variations: [],
+      },
+    },
+  },
 };

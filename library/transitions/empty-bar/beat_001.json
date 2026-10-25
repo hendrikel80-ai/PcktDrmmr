@@ -1,0 +1,34 @@
+{
+  "genre": "transitions",
+  "subgenre": "empty-bar",
+  "tags": [
+    "empty",
+    "placeholder",
+    "transition"
+  ],
+  "bpm": 120,
+  "time_signature": "4/4",
+  "bars": 1,
+  "style_description": "Empty bar: complete silence, a placeholder to build transitions into a song and program the drums afterwards",
+  "pattern": {
+    "kick": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "humanize": false
+}
