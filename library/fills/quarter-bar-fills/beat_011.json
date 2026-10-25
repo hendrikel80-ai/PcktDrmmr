@@ -1,0 +1,34 @@
+{
+  "genre": "fills",
+  "subgenre": "quarter-bar-fills",
+  "tags": [
+    "snare-eighths-fill",
+    "snare-only",
+    "manual-transcription"
+  ],
+  "bpm": 120,
+  "time_signature": "4/4",
+  "bars": 1,
+  "style_description": "Snare-only fill: straight eighth notes on the snare for the whole bar (1, 1&, 2, 2&, 3, 3&, 4, 4&), no other instruments",
+  "pattern": {
+    "snare": [
+      110,
+      0,
+      95,
+      0,
+      110,
+      0,
+      95,
+      0,
+      110,
+      0,
+      95,
+      0,
+      110,
+      0,
+      95,
+      0
+    ]
+  },
+  "humanize": true
+}

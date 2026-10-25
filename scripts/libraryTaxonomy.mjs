@@ -159,6 +159,17 @@ export const LIBRARY_TAXONOMY = {
           'double-kick-style sixteenth-note burst on beat 4 only, silent everywhere else, steady eighth-note ride underneath (not sixteenths)',
         ],
       },
+      'nu-metal': {
+        label: 'Nu Metal',
+        aliases: ['nu metal', 'nu-metal', 'numetal'],
+        bpmRange: [80, 120],
+        variations: [
+          'syncopated kick on beat 1, the "a" of beat 1, the "&" of beat 2 and the "&" of beat 3, accented snare on 2 and 4, open hihat on every beat (1, 2, 3, 4)',
+          'groove-metal chug: kick on beat 1 and the "&" of beat 2, heavy snare on 2 and 4, steady eighth-note closed hihat (not sixteenths)',
+          'halftime feel: kick on beat 1 and the "a" of beat 2, wide snare on beat 3 only, sparse eighth-note ride, crash accent on bar 1 downbeat',
+          'kick avoids beat 1 — starts on the "&" of beat 1, syncopated stop-start groove, snare on 2 and 4, open hihat accents on the off-beats',
+        ],
+      },
     },
   },
   rock: {

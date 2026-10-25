@@ -1,0 +1,70 @@
+{
+  "genre": "metal",
+  "subgenre": "nu-metal",
+  "tags": [
+    "open-hihat-quarters",
+    "syncopated-kick",
+    "manual-transcription"
+  ],
+  "bpm": 110,
+  "time_signature": "4/4",
+  "bars": 1,
+  "style_description": "Nu metal groove: open hihat on every beat (1, 2, 3, 4), syncopated kick on 1, the \"a\" of 1, the \"&\" of 2 and the \"&\" of 3, accented snare backbeat on 2 and 4",
+  "pattern": {
+    "kick": [
+      115,
+      0,
+      0,
+      90,
+      0,
+      0,
+      115,
+      0,
+      0,
+      0,
+      90,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "snare": [
+      0,
+      0,
+      0,
+      0,
+      115,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      115,
+      0,
+      0,
+      0
+    ],
+    "hihat_open": [
+      90,
+      0,
+      0,
+      0,
+      90,
+      0,
+      0,
+      0,
+      90,
+      0,
+      0,
+      0,
+      90,
+      0,
+      0,
+      0
+    ]
+  },
+  "humanize": true
+}
