@@ -25,6 +25,9 @@
   },
   "bundle": {
     "active": true,
+    "license": "GPL-3.0-only",
+    "licenseFile": "../LICENSE",
+    "copyright": "Copyright (C) 2026 Hendrik. Licensed under GPL-3.0-only.",
     "targets": ["nsis", "msi"],
     "icon": [
       "icons/32x32.png",
@@ -34,7 +37,9 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "../public/samples": "samples"
+      "../public/samples": "samples",
+      "../LICENSE": "LICENSE.txt",
+      "../NOTICE.md": "NOTICE.md"
     },
     "android": {
       "debugApplicationIdSuffix": ".debug"

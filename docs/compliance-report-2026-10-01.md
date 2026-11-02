@@ -2,6 +2,10 @@
 
 **Stand:** 2026-10-01 · **Geprüft:** Arbeitskopie mit allen noch nicht committeten Änderungen
 
+> **Nachträge:**
+> - **6.1 / 6.2 behoben (2026-10-02):** Beat-Library ins Frontend gebündelt, KI-Backend über `VITE_API_BASE_URL` konfigurierbar, nutzerfreundliche Fehlermeldungen.
+> - **4.3 / 4.4 / 4.5 erledigt (2026-11-01):** Keine Gegenzeichnung von Steinberg erhalten (laut Vertrag § 9.1 Voraussetzung für die proprietäre Lizenz) → App auf **GPL-3.0-only** umgestellt, passend zur GPLv3-Option der ASIO SDK. `LICENSE` = GPLv3-Volltext, `NOTICE.md` mit Fremdkomponenten (inkl. LAME, NAM-WASM) und ASIO-Markenhinweis, Installer liefert beides mit, Releases enthalten die verwendete SDK. Damit ist auch die LGPL-Relink-Frage bei LAME gelöst. Der Ko-fi-Link widerspricht keiner Lizenzklausel mehr (die GPL erlaubt Spenden und Verkauf).
+
 ## Kurz vorweg: Wie wird die App tatsächlich verteilt?
 
 Geprüft an `package.json`, `src-tauri/tauri.conf.json`, `public/manifest.json`, `.github/workflows/release.yml` und `src-tauri/gen/`:

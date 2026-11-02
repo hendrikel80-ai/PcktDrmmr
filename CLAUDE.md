@@ -84,13 +84,22 @@ Release-Versuch ist der eigentliche Test der Pipeline.
   Tunnel-Dienst (z. B. Tailscale Funnel) wäre der schnellste Weg.
 - **Code-Signing** für einen künftigen Installer fehlt — Windows würde bei
   Freunden eine SmartScreen-Warnung zeigen.
-- **Steinberg ASIO SDK-Lizenz ungeklärt**: `asio-sys`/`cpal` laden die SDK
-  beim Build direkt von steinberg.net und kompilieren sie mit ein. Steinberg
-  verlangt für jedes Produkt, das gegen die SDK gebaut wird, entweder
-  GPLv3-Lizenzierung des eigenen Produkts oder eine unterschriebene (aber
-  kostenlose) "Proprietary ASIO SDK License Agreement" — noch nicht
-  eingeholt. Details siehe LICENSE-Datei im Repo-Root. Vor jeder Weitergabe
-  über den engsten persönlichen Kreis hinaus zu klären.
+- **Lizenz: GPL-3.0-only (entschieden 2026-11-01)**. Grund: Die ASIO-SDK
+  (von `asio-sys`/`cpal` beim Build geladen und einkompiliert) ist dual
+  lizenziert — proprietär nur mit von Steinberg gegengezeichnetem Vertrag
+  (§ 9.1, auf Antwort wurde wochenlang vergeblich gewartet) oder GPLv3
+  ("Version 3", ohne "or later" → daher `-only`). `LICENSE` = GPLv3-Volltext,
+  Fremdkomponenten + ASIO-Markenhinweis in `NOTICE.md`, Installer zeigt die
+  Lizenz und liefert `LICENSE.txt`/`NOTICE.md` mit, der Release-Workflow
+  legt die exakt verwendete SDK als `ASIO-SDK-GPLv3-source.zip` bei.
+  Konsequenzen für künftige Arbeit: keine Abhängigkeiten mit GPL-
+  inkompatibler Lizenz (z. B. "non-commercial"-Klauseln, proprietäre SDKs)
+  einbauen; der ASIO-Markenhinweis ("ASIO is a trademark of Steinberg
+  Media Technologies GmbH, registered in Europe and other countries") muss
+  im Info-Dialog und in Release-Texten erhalten bleiben; Code von Dritten
+  nur mit deren Zustimmung zu GPLv3 (sonst ist ein späterer Lizenzwechsel
+  künftiger Versionen nicht mehr allein möglich). Bereits unter GPLv3
+  veröffentlichte Versionen bleiben dauerhaft GPLv3.
 - **Release-Workflow (`.github/workflows/release.yml`) noch nicht getestet**
   — zurückgestellt (siehe "Release-Prozess" oben). Erster Test: einen
   harmlosen Tag wie `v0.1.1-test` pushen und die Actions-Logs auf GitHub

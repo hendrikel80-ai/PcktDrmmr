@@ -41,6 +41,14 @@ siehe dafür die Git-Historie.
   benannt gespeichert/geladen (`src/data/arrangementStorage.js`).
 
 ### Geändert
+- **Lizenz: Pocket Studio ist jetzt freie Software unter der GNU GPL
+  Version 3 (GPL-3.0-only)** statt der bisherigen proprietären
+  Platzhalter-Lizenz. Grund: die eingebundene Steinberg ASIO SDK wird unter
+  ihrer GPLv3-Option genutzt. Fremdkomponenten und ASIO-Markenhinweis in
+  `NOTICE.md`; der Installer zeigt die Lizenz an und liefert `LICENSE.txt`
+  und `NOTICE.md` mit; der "Privacy & Credits"-Dialog nennt Lizenz,
+  Quellcode-Link, ASIO und LAME; GitHub-Releases enthalten zusätzlich die
+  beim Build verwendete ASIO SDK.
 - Einzählen vor der Aufnahme zählt jetzt immer 2 Takte statt 1.
 - Touch-Ziele in der Mobile-Ansicht auf ≥44px vergrößert (Step-Zellen,
   BPM-Stepper, generische Buttons/Inputs).

@@ -43,6 +43,19 @@ jobs:
         with:
           version: '17'
 
+      # Pocket Studio nutzt die ASIO-SDK unter GPLv3 (siehe NOTICE.md). Zum
+      # "Corresponding Source" eines GPL-Binaries gehört auch die exakt
+      # verwendete SDK — daher hier selbst laden, per CPAL_ASIO_DIR genau
+      # diese Kopie in den Build geben (statt asio-sys still eine eigene
+      # holen zu lassen) und das Archiv unten mit ins Release legen.
+      - name: Download ASIO SDK
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri https://www.steinberg.net/asiosdk -OutFile ASIO-SDK-GPLv3-source.zip
+          Expand-Archive ASIO-SDK-GPLv3-source.zip -DestinationPath "$env:RUNNER_TEMP\asiosdk"
+          $sdkDir = Get-ChildItem "$env:RUNNER_TEMP\asiosdk" -Directory | Where-Object Name -like 'asio*' | Select-Object -First 1
+          "CPAL_ASIO_DIR=$($sdkDir.FullName)" >> $env:GITHUB_ENV
+
       - name: Install frontend dependencies
         run: npm ci
 
@@ -63,7 +76,14 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: 'Pocket Studio ${{ github.ref_name }}'
           draft: true
-          body: 'Siehe CHANGELOG.md fuer Details zu diesem Release.'
+          body: |
+            Siehe CHANGELOG.md fuer Details zu diesem Release.
+
+            Pocket Studio ist freie Software unter der GNU GPL Version 3 (GPL-3.0-only).
+            Quellcode: Tag ${{ github.ref_name }} in diesem Repository; die beim Build
+            verwendete Steinberg ASIO SDK liegt als ASIO-SDK-GPLv3-source.zip bei.
+            ASIO is a trademark of Steinberg Media Technologies GmbH, registered in Europe and other countries.
           files: |
             src-tauri/target/release/bundle/nsis/*.exe
             src-tauri/target/release/bundle/msi/*.msi
+            ASIO-SDK-GPLv3-source.zip
