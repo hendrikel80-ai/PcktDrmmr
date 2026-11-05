@@ -66,6 +66,9 @@ siehe dafür die Git-Historie.
   Entwickler-Hinweise (`npm run dev:full` nur noch im Dev-Modus).
 
 ### Behoben
+- Desktop-Fenster ließ sich nicht schließen: dem Schließen-Schutz für
+  laufende Speichervorgänge fehlte die Tauri-Berechtigung
+  `core:window:allow-destroy`.
 - "Loop recording" wurde beim nativen ASIO-Aufnahmepfad (Drums bereits
   nativ gemischt — das ist der Normalfall beim aktuell einzigen sichtbaren
   Kit) komplett ignoriert: die Checkbox hatte keine Wirkung, der Take
