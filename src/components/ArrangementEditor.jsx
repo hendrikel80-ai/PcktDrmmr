@@ -32,6 +32,8 @@ export default function ArrangementEditor({
   activeIndex,
   activeLoopsDone,
   error,
+  onEditEntry,
+  editingPatternName,
 }) {
   const [songName, setSongName] = useState('');
   const [saved, setSaved] = useState([]);
@@ -313,6 +315,7 @@ export default function ArrangementEditor({
         <ol className="arrangement-editor__entries">
           {entries.map((entry, index) => {
             const isActive = isArrangementPlaying && index === activeIndex;
+            const isEditing = entry.patternName === editingPatternName;
             // Older songs saved before per-entry BPM existed have no
             // `bpm` field yet — fall back to the referenced pattern's own
             // saved tempo so the stepper always shows a real value.
@@ -320,7 +323,7 @@ export default function ArrangementEditor({
             return (
               <li
                 key={`${entry.patternName}-${index}`}
-                className={`arrangement-editor__entry${isActive ? ' arrangement-editor__entry--active' : ''}`}
+                className={`arrangement-editor__entry${isActive ? ' arrangement-editor__entry--active' : ''}${isEditing ? ' arrangement-editor__entry--editing' : ''}`}
               >
                 <span className="arrangement-editor__entry-name">{entry.patternName}</span>
                 <NumberStepper
@@ -356,6 +359,16 @@ export default function ArrangementEditor({
                     +
                   </button>
                 </span>
+                <button
+                  type="button"
+                  className="pattern-manager__save-btn"
+                  onClick={() => onEditEntry?.(index)}
+                  disabled={isArrangementPlaying}
+                  title="Load this bar into the sequencer to program it"
+                  aria-label={`Edit ${entry.patternName}`}
+                >
+                  ✎ Edit
+                </button>
                 <button
                   type="button"
                   className="pattern-manager__save-btn"

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { DEFAULT_PATTERN } from './data/defaultPattern';
 import { resizePatternBars } from './data/resizePattern';
-import { loadPattern as loadSavedPattern } from './data/patternStorage';
+import { loadPattern as loadSavedPattern, updatePattern } from './data/patternStorage';
 import { useAudioEngine } from './audio/useAudioEngine';
 import StepSequencer from './components/StepSequencer';
 import Transport from './components/Transport';
@@ -103,7 +103,15 @@ export default function App() {
   function setViewMode(mode) {
     setViewModeState(mode);
     writeViewMode(mode);
+    if (mode !== VIEW_MODES.SONGWRITING) setEditingPatternName('');
   }
+
+  // Name of the saved pattern behind the song entry currently loaded into
+  // the sequencer for editing (see handleEditEntry). Song entries reference
+  // saved patterns by name, so saving the edit back under that name is what
+  // makes the song pick up the new version.
+  const [editingPatternName, setEditingPatternName] = useState('');
+  const [editingNotice, setEditingNotice] = useState('');
 
   // Song/Arrangement Mode: an ordered list of {patternName, repeats}
   // entries referencing already-saved patterns (see ArrangementEditor.jsx
@@ -233,8 +241,38 @@ export default function App() {
     toggle();
   }, [pendingSongStart]);
 
+  function handleEditEntry(index) {
+    const entry = arrangementEntries[index];
+    if (!entry) return;
+    const saved = loadSavedPattern(entry.patternName);
+    if (!saved) {
+      setArrangementError(`Pattern "${entry.patternName}" not found.`);
+      return;
+    }
+    setArrangementError('');
+    setEditingNotice('');
+    stop();
+    setPattern(applyEntryBpm(saved, entry));
+    setEditingPatternName(entry.patternName);
+  }
+
+  function handleSaveEditing() {
+    if (!editingPatternName) return;
+    if (updatePattern(editingPatternName, pattern)) {
+      setEditingNotice('Saved to the song entry.');
+    } else {
+      setEditingNotice(`Pattern "${editingPatternName}" no longer exists.`);
+    }
+  }
+
+  function handleStopEditing() {
+    setEditingPatternName('');
+    setEditingNotice('');
+  }
+
   function handlePlaySong() {
     if (arrangementEntries.length === 0) return;
+    handleStopEditing();
     const firstEntry = arrangementEntries[0];
     const firstPattern = loadSavedPattern(firstEntry.patternName);
     if (!firstPattern) {
@@ -402,7 +440,24 @@ export default function App() {
             activeIndex={arrangementIndex}
             activeLoopsDone={arrangementLoopsDone}
             error={arrangementError}
+            onEditEntry={handleEditEntry}
+            editingPatternName={editingPatternName}
           />
+        )}
+
+        {viewMode === VIEW_MODES.SONGWRITING && editingPatternName && (
+          <div className="arrangement-editor__editing">
+            <span>
+              Editing <strong>{editingPatternName}</strong> — program it in the grid below, then save it back to the song.
+            </span>
+            <button type="button" className="pattern-manager__load-btn" onClick={handleSaveEditing}>
+              Save to song entry
+            </button>
+            <button type="button" className="pattern-manager__save-btn" onClick={handleStopEditing}>
+              Done
+            </button>
+            {editingNotice && <span className="arrangement-editor__editing-notice">{editingNotice}</span>}
+          </div>
         )}
 
         <Transport

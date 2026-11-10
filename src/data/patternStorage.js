@@ -33,6 +33,19 @@ export function savePattern(name, pattern) {
   writeAll(all);
 }
 
+// Overwrites the pattern of an existing saved entry in place, keeping its
+// other fields (e.g. isReference) — unlike savePattern(), which replaces
+// the whole entry. Used when a song entry's pattern is edited.
+export function updatePattern(name, pattern) {
+  const all = readAll();
+  const entry = all.find((p) => p.name === name);
+  if (!entry) return false;
+  entry.pattern = pattern;
+  entry.savedAt = Date.now();
+  writeAll(all);
+  return true;
+}
+
 export function loadPattern(name) {
   const entry = readAll().find((p) => p.name === name);
   if (!entry) return null;

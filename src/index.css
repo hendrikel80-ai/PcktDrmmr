@@ -1207,6 +1207,26 @@ input[type='range']::-moz-range-thumb {
   box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
+.arrangement-editor__entry--editing {
+  border-color: var(--accent);
+}
+
+.arrangement-editor__editing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.arrangement-editor__editing-notice {
+  opacity: 0.8;
+}
+
 .arrangement-editor__entry-name {
   font-weight: 600;
   min-width: 80px;
