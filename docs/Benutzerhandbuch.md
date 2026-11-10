@@ -18,11 +18,10 @@ wie du sie in der App siehst, zum Beispiel **Start Recording**.
 7. [Den Sound einstellen](#den-sound-einstellen)
 8. [Mikrofon und Gesang](#mikrofon-und-gesang)
 9. [Aufnehmen](#aufnehmen)
-10. [Pocket Studio auf dem Handy](#pocket-studio-auf-dem-handy)
-11. [Tastenkürzel](#tastenkürzel)
-12. [Wenn etwas nicht klappt](#wenn-etwas-nicht-klappt)
-13. [Deine Daten](#deine-daten)
-14. [Hilfe, Feedback und Lizenz](#hilfe-feedback-und-lizenz)
+10. [Tastenkürzel](#tastenkürzel)
+11. [Wenn etwas nicht klappt](#wenn-etwas-nicht-klappt)
+12. [Deine Daten](#deine-daten)
+13. [Hilfe, Feedback und Lizenz](#hilfe-feedback-und-lizenz)
 
 ## Was du brauchst
 
@@ -34,9 +33,6 @@ wie du sie in der App siehst, zum Beispiel **Start Recording**.
   (zum Beispiel eine Focusrite Scarlett)
 - den **ASIO-Treiber** für dieses Interface. Du bekommst ihn beim Hersteller des
   Interfaces. Ohne ASIO-Treiber kann die App dein Instrument nicht erkennen.
-
-**Für das Handy:** nur einen aktuellen Browser. Mehr dazu unter
-[Pocket Studio auf dem Handy](#pocket-studio-auf-dem-handy).
 
 ## Installation
 
@@ -74,7 +70,8 @@ Das war's, du kannst mitspielen.
 
 Die Bibliothek enthält über 100 fertige Beats aus Rock, Punk, Metal, Funk,
 Reggae, Blues, Country, Jazz, Latin, Pop, Hip-Hop und Electronic. Dazu kommen
-Fills und ein leerer Takt für Pausen im Song.
+Fills und unter **Transitions → Empty Bar** ein leerer Takt. Wofür der gut ist,
+steht unter [Leere Takte für Übergänge](#leere-takte-für-übergänge).
 
 ### Generate a Beat
 
@@ -141,6 +138,36 @@ speichert den ganzen Song als MIDI-Datei.
 **Wichtig:** Ein Song merkt sich nur Verweise auf deine gespeicherten Beats.
 Wenn du einen Beat löschst, der im Song vorkommt, stoppt der Song an dieser
 Stelle mit einer Meldung.
+
+### Leere Takte für Übergänge
+
+Oft weißt du schon, dass zwischen Strophe und Refrain ein Übergang kommen soll,
+hast ihn aber noch nicht programmiert. Dafür gibt es den leeren Takt: Er ist ein
+Platzhalter, den du in den Song setzt und später mit Schlägen füllst.
+
+1. Wähle unter **From Library** das Genre **Transitions**, das Subgenre **Empty
+   Bar** und das Pattern aus und klicke auf **+ Add to Song**. Der leere Takt
+   landet am Ende des Songs. Schiebe ihn mit den Pfeilen an die richtige Stelle.
+2. Klicke bei diesem Teil auf **✎ Edit**. Der leere Takt wird ins Raster geladen.
+3. Klicke die Schläge ein, die du haben möchtest, zum Beispiel einen Fill. Mit
+   **Bar / Bars** machst du den Übergang bei Bedarf länger. Mit **▶ Play** hörst
+   du ihn dir an.
+4. Klicke auf **Save to song entry**. Es erscheint „Saved to the song entry.“
+5. Klicke auf **Done**, wenn du fertig bist.
+6. Klicke auf **Save Song**, damit auch der Song selbst gespeichert ist.
+
+Jeder leere Takt, den du aus der Bibliothek hinzufügst, ist ein eigenes Pattern.
+Du kannst also mehrere davon in einen Song setzen und jeden anders füllen.
+
+**Gut zu wissen:**
+
+- **✎ Edit** funktioniert bei jedem Teil des Songs, nicht nur beim leeren Takt.
+- Während der Song läuft, ist **✎ Edit** gesperrt. **▶ Play Song** beendet das
+  Bearbeiten automatisch, deshalb vorher **Save to song entry** klicken.
+- Bei einem Teil aus **From Own Patterns** änderst du den gespeicherten Beat
+  selbst. Kommt er mehrmals im Song vor, ändern sich alle diese Stellen mit.
+- Du kannst den leeren Takt auch über **Generate a Beat** laden, indem du
+  `empty bar` oder `leerer takt` eintippst.
 
 ## Gitarre oder Bass anschließen
 
@@ -272,32 +299,6 @@ Wert für die nächsten Aufnahmen.
 Ändere den Wert in kleinen Schritten und mache jeweils eine kurze Testaufnahme.
 Der Regler wirkt nur auf neue Aufnahmen.
 
-## Pocket Studio auf dem Handy
-
-Die Handy-Version läuft im Browser, du musst nichts installieren. Sie ist noch
-neu und kann deshalb kleine Macken haben.
-
-**Das geht:** Beats laden und bauen, Songs zusammensetzen und über das Mikrofon
-aufnehmen, zum Beispiel eine akustische Gitarre.
-
-**Das geht nur am PC:** Amp, Stimmgerät, NAM-Modelle, Make me Sound Like, Loop
-recording und Guitar/Mic Sync.
-
-So nimmst du auf:
-
-1. Setze Kopfhörer auf. Sonst nimmt das Mikrofon die Drums aus dem Lautsprecher
-   ein zweites Mal auf.
-2. Tippe auf **Connect Microphone** und erlaube dem Browser den Zugriff.
-3. Tippe auf **Start Recording**.
-4. Tippe nach dem Stoppen auf den Dateinamen, um die Aufnahme zu speichern.
-
-**Wichtig:** Auf dem Handy bleiben Aufnahmen nur so lange erhalten, wie die Seite
-offen ist. Speichere sie also, bevor du die Seite schließt oder neu lädst.
-Gelöschte Aufnahmen lassen sich hier nicht wiederherstellen.
-
-**Tipp:** Wähle im Browser-Menü **Zum Startbildschirm hinzufügen**. Dann startest
-du Pocket Studio wie eine normale App.
-
 ## Tastenkürzel
 
 | Taste | Funktion |
@@ -343,9 +344,9 @@ Stelle den Regler **Guitar/Mic Sync** ein, siehe
 Schaue unter **Show archived** nach und danach im Windows-Ordner **Downloads**.
 Umbenannte Aufnahmen findest du nach einem Neustart eventuell nur noch dort.
 
-**Das Handy nimmt nichts auf.**
-Erlaube dem Browser den Mikrofonzugriff. Das funktioniert nur, wenn die Adresse
-der Seite mit `https://` beginnt.
+**Der Edit-Button im Song ist grau.**
+Der Song läuft gerade. Stoppe ihn mit **⏸ Stop Song**, dann kannst du wieder
+bearbeiten.
 
 ## Deine Daten
 
