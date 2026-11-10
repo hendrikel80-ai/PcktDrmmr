@@ -7,6 +7,8 @@ alles zusammen als MP3 auf.
 Die Oberfläche der App ist auf Englisch. Deshalb stehen Buttons hier genau so,
 wie du sie in der App siehst, zum Beispiel **Start Recording**.
 
+*English version: [User Guide](User-Guide.md)*
+
 ## Inhalt
 
 1. [Was du brauchst](#was-du-brauchst)
